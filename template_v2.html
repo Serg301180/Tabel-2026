@@ -582,7 +582,8 @@ function wts(){return LIVE_WTS||BUNDLED_WTS}
 
 // ═══ CONFIG ═══
 const K={url:'cfg_url',tab:'cfg_tab',es:'cfg_es',ec:'cfg_ec',os:'cfg_os',oc:'cfg_oc',sync:'cfg_sync',ce:'cfg_ce',co:'cfg_co',cs:'cfg_cs',secS:'cfg_secS',secC:'cfg_secC',wtS:'cfg_wtS',wtC:'cfg_wtC',cw:'cfg_cw'};
-function getCfg(){return{url:ls(K.url)||'',tab:ls(K.tab)||'ТАБЕЛЬ',es:ls(K.es)||'СПРАВОЧНИК',ec:ls(K.ec)||'A',os:ls(K.os)||'СПРАВОЧНИК',oc:ls(K.oc)||'C',secS:ls(K.secS)||'СПРАВОЧНИК',secC:ls(K.secC)||'B',wtS:ls(K.wtS)||'СПРАВОЧНИК',wtC:ls(K.wtC)||'D'}}
+const DEFAULT_URL='https://script.google.com/macros/s/AKfycbxS7f1qstxuQ0UaiPQSXkP4FhMUP9hK_EZL2uHQRRsX1UJyL6dpdWdhm8qkdfUWmmDZBg/exec';
+function getCfg(){return{url:ls(K.url)||DEFAULT_URL,tab:ls(K.tab)||'ТАБЕЛЬ',es:ls(K.es)||'СПРАВОЧНИК',ec:ls(K.ec)||'A',os:ls(K.os)||'СПРАВОЧНИК',oc:ls(K.oc)||'C',secS:ls(K.secS)||'СПРАВОЧНИК',secC:ls(K.secC)||'B',wtS:ls(K.wtS)||'СПРАВОЧНИК',wtC:ls(K.wtC)||'D'}}
 
 // ═══ STATE ═══
 let user=null, userLoc=null, lunchMin=0, lunchShown=false, pc=0, grossMinsState=0;
@@ -698,7 +699,8 @@ document.getElementById('helpOv').addEventListener('click',e=>{if(e.target===e.c
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeAdmin();document.getElementById('helpOv').classList.remove('open');}});
 
 // ═══ PASSWORDS ═══
-function getPwd(n){return ls('pwd_'+n)||'1234';}
+const DEFAULT_PWDS={'Любченко С.':'30+11+80'};
+function getPwd(n){return ls('pwd_'+n)||(DEFAULT_PWDS[n]||'1234');}
 function changePwd(){
   const n=document.getElementById('pwdE').value,p=document.getElementById('pwdV').value.trim();
   if(!n){toast('⚠️ Виберіть співробітника','warn');return;}
