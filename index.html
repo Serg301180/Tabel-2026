@@ -684,13 +684,13 @@ async function testConn(){
   catch(e){toast('❌ '+e.message,'err');}
 }
 function updAdmStatus(){
-  const sync=ls(K.sync),url=ls(K.url)||'',dot=document.getElementById('admDot'),txt=document.getElementById('admTxt');
+  const sync=ls(K.sync),url=getCfg().url,dot=document.getElementById('admDot'),txt=document.getElementById('admTxt');
   if(!url){dot.className='dot dot-none';txt.textContent='URL не вказано';}
   else if(sync){dot.className='dot dot-ok';const d=new Date(sync);txt.innerHTML=`Підключено · Оновлено: <b>${d.toLocaleDateString('uk-UA')} ${d.toLocaleTimeString('uk-UA',{hour:'2-digit',minute:'2-digit'})}</b> · ${emps().length} сп., ${objs().length} об.`;}
   else{dot.className='dot dot-err';txt.textContent='URL вказано, але дані ще не завантажено';}
 }
 function updConnDot(){
-  const dot=document.getElementById('cdot'),sync=ls(K.sync),url=ls(K.url)||'';
+  const dot=document.getElementById('cdot'),sync=ls(K.sync),url=getCfg().url;
   dot.className='cdot'+(url&&sync?' ok':url?' warn':'');
 }
 function showHelp(){document.getElementById('helpOv').classList.add('open');}
@@ -1092,9 +1092,9 @@ async function sendArrival(){
   const btn=document.getElementById('arrBtn');
   btn.innerHTML='<span class="spin"></span> Відправляємо...';btn.disabled=true;
 
-  const url=ls(K.url)||'';
+  const cfg=getCfg();
+  const url=cfg.url;
   if(url){
-    const cfg=getCfg();
     try{
       await fetch(url,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain'},
         body:JSON.stringify({type:'arrival',tabSheet:cfg.tab,
@@ -1173,12 +1173,12 @@ async function doFinalSubmit(){
   // Send to Sheets
   const btn=document.getElementById('tmBtn');
   btn.innerHTML='<span class="spin"></span> Відправляємо...';btn.disabled=true;
-  const url=ls(K.url)||'';
+  const cfg2=getCfg();
+  const url=cfg2.url;
   if(url){
     try{
-      const cfg=getCfg();
       await fetch(url,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain'},
-        body:JSON.stringify({type:'full',rows,tabSheet:cfg.tab})});
+        body:JSON.stringify({type:'full',rows,tabSheet:cfg2.tab})});
       toast('✅ Відправлено до Google Sheets!','ok');
     }catch(e){toast('💾 Збережено локально. Помилка з\'єднання.','warn');console.error(e);}
   }else{
