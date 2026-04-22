@@ -757,7 +757,20 @@ document.addEventListener('DOMContentLoaded', async ()=>{
 
   // Тільки після отримання дати перевіряємо збережену сесію
   const sv=sessionStorage.getItem('tabel_u');
-  if(sv){user=sv;setBadge(sv);goStep(2);}
+  if(sv){
+    user=sv;setBadge(sv);
+    const _sa=getArrState();
+    if(_sa){
+      userLoc=_sa.location;userIP=_sa.ip;
+      document.getElementById('s2d').value=_sa.date;
+      document.getElementById('s2m').value=_sa.month;
+      document.getElementById('s2a').value=_sa.arrival;
+      toast('⏩ Прихід '+_sa.arrival+' вже зафіксовано. Вкажіть час відходу.','ok');
+      goStep(4);
+    }else{
+      goStep(2);
+    }
+  }
 
   startLiveTimer();
   initFavicon();
@@ -1614,9 +1627,9 @@ function getArrState(){
   try{
     const v=ls('tabel_arr');if(!v)return null;
     const obj=JSON.parse(v);
-    const _nd=_srvTime?new Date(_srvTime.epoch+(Date.now()-_srvTime.fetchedAt)):new Date();
-    const today=_localDateStr(_nd);
-    return(obj.user===user&&obj.date===today)?obj:null;
+    const today=_localDateStr(new Date());
+    if(obj.user!==user||obj.date!==today)return null;
+    return obj;
   }catch(e){return null;}
 }
 function saveArrState(date,month,arrival){
