@@ -1,0 +1,9 @@
+# Telegram token та інші секрети
+apps_script.gs
+
+# Claude Code internal
+.claude/
+
+# Python cache
+__pycache__/
+*.pyc
