@@ -701,7 +701,7 @@ function wts(){return LIVE_WTS||BUNDLED_WTS}
 
 // ═══ CONFIG ═══
 const K={url:'cfg_url',tab:'cfg_tab',es:'cfg_es',ec:'cfg_ec',os:'cfg_os',oc:'cfg_oc',sync:'cfg_sync',ce:'cfg_ce',co:'cfg_co',cs:'cfg_cs',secS:'cfg_secS',secC:'cfg_secC',wtS:'cfg_wtS',wtC:'cfg_wtC',cw:'cfg_cw'};
-const DEFAULT_URL='https://script.google.com/macros/s/AKfycbxHwOGf_lAuZAGcfPm3lzuGpX7SiZ3AWrStg7770QgiBMFXUXTBcP9Nj0otzila2t33uA/exec';
+const DEFAULT_URL='https://script.google.com/macros/s/AKfycbxpGWfa6jkgu6S_bEVIJV_l4bHHvxac-uYkIgvNVSRDQ2EPnwiJ1dK6Y90OypLnpnnq7w/exec';
 function getCfg(){return{url:ls(K.url)||DEFAULT_URL,tab:ls(K.tab)||'ТАБЕЛЬ',es:ls(K.es)||'СПРАВОЧНИК',ec:ls(K.ec)||'A',os:ls(K.os)||'СПРАВОЧНИК',oc:ls(K.oc)||'C',secS:ls(K.secS)||'СПРАВОЧНИК',secC:ls(K.secC)||'B',wtS:ls(K.wtS)||'СПРАВОЧНИК',wtC:ls(K.wtC)||'D'}}
 
 // ═══ STATE ═══
@@ -1177,9 +1177,11 @@ async function doLogin(){
       const d=await r.json();
       if(d.ok&&d.hasOpenSession){
         userLoc=d.location||'';userIP=d.ip||'невідомо';
-        document.getElementById('s2d').value=d.date||today;
-        document.getElementById('s2m').value=d.month||'';
-        document.getElementById('s2a').value=d.arrival||'';
+        const _rd=d.date||today,_rm=d.month||'',_ra=d.arrival||'';
+        document.getElementById('s2d').value=_rd;
+        document.getElementById('s2m').value=_rm;
+        document.getElementById('s2a').value=_ra;
+        saveArrState(_rd,_rm,_ra);
         btn.innerHTML='Увійти →';btn.disabled=false;
         toast('⏩ Незакрита сесія в таблиці. Вкажіть час відходу.','ok');
         goStep(4);
