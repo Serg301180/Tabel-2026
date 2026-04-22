@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Табель 2026</title>
+<link rel="icon" id="fav" href="">
 <style>
 :root{
   --bg:#07070f;--s1:#0f0f1e;--s2:#141428;--s3:#1a1a35;--s4:#20204a;
@@ -200,6 +201,7 @@ input[type="date"],input[type="time"]{color-scheme:dark}
     </div>
   </div>
   <div class="hdr-r">
+    <button class="btn-cfg" id="statsBtn" style="display:none" onclick="openStats()">📊 Статистика</button>
     <button class="btn-cfg" onclick="openAdmin()">
       <div class="cdot" id="cdot"></div>⚙ Налаштування
     </button>
@@ -226,6 +228,10 @@ input[type="date"],input[type="time"]{color-scheme:dark}
 
 <!-- ═══ STEP 1 — LOGIN ═══ -->
 <div class="step active" id="step1">
+  <div style="background:rgba(245,158,11,.12);border:1.5px solid var(--warn);border-radius:9px;padding:12px 16px;margin-bottom:14px;font-size:.8rem;color:var(--warn);line-height:1.6;text-align:center;width:100%;max-width:680px">
+    ⚠️ <b>Увага:</b> облік робочого часу ведеться в реальному часі.<br>
+    Внесення даних наприкінці дня за весь період — <b>неприпустимо!</b>
+  </div>
   <div class="login-head">
     <div class="li">🏗</div>
     <h1>Табель 2026</h1>
@@ -245,9 +251,6 @@ input[type="date"],input[type="time"]{color-scheme:dark}
         onkeydown="if(event.key==='Enter')doLogin()">
     </div>
     <button class="btn btn-p" style="width:100%;margin-top:4px" onclick="doLogin()">Увійти →</button>
-    <p style="text-align:center;margin-top:12px;font-size:.7rem;color:var(--tx3)">
-      Пароль за замовчуванням: <b style="color:var(--tx2)">1234</b> &nbsp;·&nbsp; Для зміни — ⚙ Налаштування
-    </p>
   </div>
 </div>
 
@@ -268,6 +271,7 @@ input[type="date"],input[type="time"]{color-scheme:dark}
         <div class="loc-ic">🏠</div>
         <div class="loc-name">Дома</div>
         <div class="loc-desc">Дистанційна робота</div>
+        <div id="loc_home_avail" style="display:none;font-size:.68rem;color:var(--ok);margin-top:4px;font-weight:600"></div>
       </div>
       <div class="loc-card" id="loc_free" onclick="selectLoc('Командировка')">
         <div class="loc-ic">🚗</div>
@@ -279,6 +283,9 @@ input[type="date"],input[type="time"]{color-scheme:dark}
     <div class="loc-warn" id="locWarn">
       ⚠️ Сьогодні ви вже відмітили прихід в офіс. Повторний запис в офіс неможливий.<br>
       Якщо ви продовжуєте роботу — оберіть <b>Дома</b> або <b>Командировка</b>.
+    </div>
+    <div id="homeWorkBanner" style="display:none;background:rgba(16,185,129,.1);border:1.5px solid rgba(16,185,129,.4);border-radius:8px;padding:10px 13px;margin-top:10px;font-size:.78rem;color:var(--ok);line-height:1.6">
+      🏠 <b>Продовження роботи вдома.</b> Доступна лише локація <b>«Дома»</b> — офіс та командировка заблоковані.
     </div>
 
     <div class="btn-row" style="justify-content:flex-start">
@@ -304,7 +311,7 @@ input[type="date"],input[type="time"]{color-scheme:dark}
     </div>
     <div class="f">
       <label>🕐 Час приходу</label>
-      <input type="time" id="s2a" value="08:00">
+      <input type="time" id="s2a" value="08:00" oninput="onManualTimeChange('arr')">
     </div>
     <!-- hidden departure input — stays accessible in DOM for collectRows() -->
     <input type="hidden" id="s2l">
@@ -323,13 +330,12 @@ input[type="date"],input[type="time"]{color-scheme:dark}
     <div id="arrInfoPanel" style="background:var(--s2);border:1px solid rgba(16,185,129,.4);border-radius:8px;padding:11px 14px;margin-bottom:16px;font-size:.8rem;color:var(--tx2);line-height:1.7"></div>
     <div class="f">
       <label>🕑 Час відходу</label>
-      <input type="time" id="s2lv" value="17:00" oninput="calcH()">
+      <input type="time" id="s2lv" value="17:00" oninput="calcH();onManualTimeChange('dep')">
     </div>
     <div id="hoursDisplay" class="hours-detail">
       <div class="hrow"><span class="hrow-lbl">⏱ Підсумок робочого часу:</span><span class="hrow-val main">—</span></div>
     </div>
-    <div class="btn-row">
-      <button class="btn btn-s" onclick="goStep(3)">← Назад</button>
+    <div class="btn-row" style="justify-content:flex-end">
       <button class="btn btn-p" onclick="afterTime()">Далі →</button>
     </div>
   </div>
@@ -375,19 +381,15 @@ input[type="date"],input[type="time"]{color-scheme:dark}
     <div id="plist"></div>
     <button class="btn-add" onclick="addProj()">＋ Додати ще проект</button>
 
-    <!-- Контрольна сума часу — показується якщо є розбіжність -->
-    <div id="timeCheckWarn" style="display:none;margin-top:14px;background:rgba(245,158,11,.09);border:1.5px solid rgba(245,158,11,.45);border-radius:10px;padding:15px 16px">
-      <div style="font-size:.88rem;font-weight:700;color:var(--warn);margin-bottom:10px">⚠️ Час роботи не збігається з часом по проектах</div>
-      <div id="timeCheckDetail" style="font-size:.8rem;color:var(--tx2);line-height:2;margin-bottom:12px"></div>
-      <div style="display:flex;gap:10px;flex-wrap:wrap">
-        <button class="btn btn-s" style="font-size:.8rem;padding:7px 14px" onclick="dismissTimeWarn()">✏️ Скоригувати проекти</button>
-        <button class="btn btn-s" style="font-size:.8rem;padding:7px 14px;color:var(--warn);border-color:rgba(245,158,11,.4)" onclick="goStep(4);dismissTimeWarn()">🕐 Змінити час роботи</button>
-      </div>
+    <!-- Динамічний залишок часу -->
+    <div id="remainBlock" style="display:none;margin-top:12px;border-radius:8px;padding:10px 14px;font-size:.84rem;transition:all .3s">
+      <span style="color:var(--tx2)">Залишилось розподілити: </span>
+      <span id="remainVal" style="font-weight:700"></span>
     </div>
 
     <div class="btn-row">
       <button class="btn btn-s" id="proj_back_btn" onclick="backFromProjects()">← Назад</button>
-      <button class="btn btn-p" onclick="goToTomorrow()">Далі →</button>
+      <button class="btn btn-p" id="projNextBtn" onclick="goToTomorrow()" disabled>Далі →</button>
     </div>
   </div>
 </div>
@@ -455,14 +457,44 @@ input[type="date"],input[type="time"]{color-scheme:dark}
     <div class="succ-title">Дані відправлено!</div>
     <div class="succ-sub">Табель за <span id="sd"></span> збережено</div>
     <div id="ssum"></div>
+    <div id="homeWorkInfo" style="display:none;background:rgba(16,185,129,.08);border:1.5px solid rgba(16,185,129,.3);border-radius:9px;padding:12px 15px;margin-bottom:10px;text-align:center">
+      <div style="font-size:.75rem;color:var(--tx2);margin-bottom:4px">🏠 Робота з дому (за потреби)</div>
+      <div style="font-size:1.6rem;font-weight:800;color:var(--ok);letter-spacing:2px;font-variant-numeric:tabular-nums" id="homeWorkTime">—</div>
+      <div style="font-size:.7rem;color:var(--tx3);margin-top:3px" id="homeWorkCountdown"></div>
+    </div>
     <div class="btn-row" style="flex-direction:column">
-      <button class="btn btn-p" style="width:100%" onclick="newDay()">📅 Заповнити ще один день</button>
+      <button class="btn btn-ok" style="width:100%" id="homeWorkBtn" onclick="continueFromHome()" disabled>🏠 Продовжити роботу вдома</button>
       <button class="btn btn-s" style="width:100%" onclick="logout()">↩ Вийти</button>
     </div>
   </div>
 </div>
 
 </div><!-- /app -->
+
+<!-- ═══ CONFIRM TIME MODAL ═══ -->
+<div id="confirmOv" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.78);z-index:950;align-items:center;justify-content:center;padding:20px">
+  <div style="background:var(--s1);border:1px solid var(--bd2);border-radius:14px;width:100%;max-width:380px;padding:30px 24px;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,.7)">
+    <div id="confirmTitle" style="font-size:.85rem;color:var(--tx2);margin-bottom:10px;text-transform:uppercase;letter-spacing:.5px"></div>
+    <div id="confirmTime" style="font-size:3rem;font-weight:800;color:var(--ok);margin-bottom:6px;font-variant-numeric:tabular-nums;letter-spacing:2px"></div>
+    <div id="confirmDate" style="font-size:.75rem;color:var(--tx3);margin-bottom:22px"></div>
+    <div style="display:flex;gap:12px;justify-content:center">
+      <button class="btn btn-s" style="flex:1" onclick="confirmCancel()">✏ Змінити</button>
+      <button class="btn btn-p" style="flex:1" onclick="confirmOk()">✅ Підтвердити</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ HOME WARN MODAL ═══ -->
+<div id="homeWarnOv" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.78);z-index:950;align-items:center;justify-content:center;padding:20px">
+  <div style="background:var(--s1);border:1px solid var(--bd2);border-radius:14px;width:100%;max-width:380px;padding:30px 24px;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,.7)">
+    <div style="font-size:2.2rem;margin-bottom:10px">🏠</div>
+    <div style="font-size:.9rem;font-weight:700;color:var(--tx);margin-bottom:8px">Робота вдома ще недоступна</div>
+    <div id="homeWarnDep" style="font-size:.82rem;color:var(--tx2);margin-bottom:10px;line-height:1.6"></div>
+    <div style="font-size:2.6rem;font-weight:800;color:var(--ok);margin:6px 0 4px;font-variant-numeric:tabular-nums;letter-spacing:3px" id="homeWarnTime">—</div>
+    <div style="font-size:.74rem;color:var(--tx3);margin-bottom:22px">Відпочиньте — ви зможете почати роботу вдома з цього часу</div>
+    <button class="btn btn-p" style="width:100%" onclick="document.getElementById('homeWarnOv').style.display='none'">Зрозуміло</button>
+  </div>
+</div>
 
 <!-- ═══════════ ADMIN MODAL ═══════════ -->
 <div class="adm-ov" id="admOv">
@@ -534,10 +566,48 @@ input[type="date"],input[type="time"]{color-scheme:dark}
     <div class="hint" style="margin-top:6px">Пароль за замовчуванням: <b style="color:var(--tx2)">1234</b></div>
   </div>
 
+  <!-- Ручний запис -->
+  <div class="adm-sec">
+    <div class="adm-sec-t">✍️ Ручний запис приходу</div>
+    <div style="font-size:.7rem;color:var(--tx3);margin-bottom:10px">Для ситуацій коли співробітник забув відмітити прихід вчасно. Записується напряму в Google Sheets без обмежень по часу.</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px">
+      <div class="f" style="margin:0"><label>Співробітник</label><select id="mrEmp"><option value="">— Виберіть —</option></select></div>
+      <div class="f" style="margin:0"><label>Дата</label><input type="date" id="mrDate"></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+      <div class="f" style="margin:0"><label>Час приходу</label><input type="time" id="mrArr"></div>
+      <div class="f" style="margin:0"><label>Місце роботи</label><select id="mrLoc">
+        <option value="Офіс">🏢 Офіс</option>
+        <option value="Дома">🏠 Дома</option>
+        <option value="Командировка">✈️ Командировка</option>
+      </select></div>
+    </div>
+    <button class="btn btn-ok" id="mrSubmitBtn" style="width:100%;font-size:.82rem" onclick="submitManualEntry()">📝 Записати прихід</button>
+    <div class="hint" style="margin-top:6px">Після запису — співробітник може самостійно завершити табель з кроку 4 (відхід).</div>
+  </div>
+
+  <!-- Довідник білих IP -->
+  <div class="adm-sec">
+    <div class="adm-sec-t" style="display:flex;align-items:center;justify-content:space-between">
+      🌐 Довідник перевірених IP
+      <button class="btn btn-s" style="font-size:.74rem;padding:4px 10px" onclick="toggleIpSection()">▼ Розгорнути</button>
+    </div>
+    <div id="ipSection" style="display:none;margin-top:10px">
+      <div style="font-size:.7rem;color:var(--tx3);margin-bottom:8px">IP → Локація → Співробітник (або «Всі») → Коментар. Записи без IP ігноруються при перевірці.</div>
+      <div id="ipRows"></div>
+      <button class="btn btn-s" style="width:100%;margin-top:6px;font-size:.8rem" onclick="addIpRow()">＋ Додати IP</button>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <button class="btn btn-ok" style="flex:1;font-size:.8rem" onclick="saveWhiteIPs()">💾 Зберегти список</button>
+        <button class="btn btn-s" style="font-size:.8rem;padding:7px 12px" onclick="loadWhiteIPs()">↻ Оновити</button>
+      </div>
+    </div>
+  </div>
+
   <div class="adm-acts">
     <button class="btn btn-ok" onclick="saveAndLoad()"><span id="loadTxt">🔄 Зберегти та завантажити</span></button>
     <button class="btn btn-p" onclick="closeAdmin()">✓ Закрити</button>
     <button class="btn btn-s" onclick="testConn()">🔗 Тест з'єднання</button>
+    <button class="btn btn-s" style="background:rgba(99,102,241,.1);color:var(--ach);border-color:var(--acd)" onclick="openMonitoring()">📡 Моніторинг</button>
   </div>
 </div>
 </div>
@@ -563,6 +633,55 @@ input[type="date"],input[type="time"]{color-scheme:dark}
 
 <div class="toast" id="toast"></div>
 
+<!-- ═══ STATS OVERLAY ═══ -->
+<div class="adm-ov" id="statsOv">
+<div class="adm-box" style="max-width:800px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+    <div class="adm-title" style="margin:0">📊 Моя статистика</div>
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <select id="statsMonth" onchange="loadMyStats()" style="background:var(--inp);border:1px solid var(--bd);border-radius:7px;color:var(--tx);padding:6px 10px;font-size:.8rem;font-family:inherit"></select>
+      <span id="statsLoadMsg" style="font-size:.75rem;color:var(--tx3)"></span>
+      <button class="btn btn-s" style="padding:6px 12px;font-size:.8rem" onclick="closeStats()">✕ Закрити</button>
+    </div>
+  </div>
+  <div id="statsSummary"></div>
+  <div id="statsChartsGrid" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+    <div id="statsLocChart"></div>
+    <div id="statsBarChart"></div>
+  </div>
+  <div id="statsProjects"></div>
+</div>
+</div>
+
+<!-- ═══ MONITORING OVERLAY ═══ -->
+<div class="adm-ov" id="monOv">
+<div class="adm-box" style="max-width:820px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+    <div class="adm-title" style="margin:0">📡 Адмін-моніторинг</div>
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <select id="monMonth" onchange="loadAdminStats()" style="background:var(--inp);border:1px solid var(--bd);border-radius:7px;color:var(--tx);padding:6px 10px;font-size:.8rem;font-family:inherit"></select>
+      <span id="monLoadMsg" style="font-size:.75rem;color:var(--tx3)"></span>
+      <button class="btn btn-s" style="padding:6px 12px;font-size:.8rem" onclick="closeMonitoring()">✕ Закрити</button>
+    </div>
+  </div>
+  <!-- Хто в мережі -->
+  <div class="adm-sec" style="margin-bottom:10px">
+    <div class="adm-sec-t">🟢 Хто зараз в мережі (сьогодні)</div>
+    <div id="monOnline" style="margin-top:6px"></div>
+  </div>
+  <!-- Трудовитрати -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:10px" id="monChartsGrid">
+    <div id="monProjChart"></div>
+    <div id="monLocChart"></div>
+  </div>
+  <!-- IP-контроль -->
+  <div class="adm-sec">
+    <div class="adm-sec-t">⚠️ IP-контроль (підозрілі записи)</div>
+    <div id="monSuspicious" style="margin-top:6px"></div>
+  </div>
+</div>
+</div>
+
 <script>
 // ═══ ADMIN ACCESS ═══
 const ADMIN_USER = 'Любченко С.';
@@ -582,13 +701,20 @@ function wts(){return LIVE_WTS||BUNDLED_WTS}
 
 // ═══ CONFIG ═══
 const K={url:'cfg_url',tab:'cfg_tab',es:'cfg_es',ec:'cfg_ec',os:'cfg_os',oc:'cfg_oc',sync:'cfg_sync',ce:'cfg_ce',co:'cfg_co',cs:'cfg_cs',secS:'cfg_secS',secC:'cfg_secC',wtS:'cfg_wtS',wtC:'cfg_wtC',cw:'cfg_cw'};
-const DEFAULT_URL='https://script.google.com/macros/s/AKfycbxS7f1qstxuQ0UaiPQSXkP4FhMUP9hK_EZL2uHQRRsX1UJyL6dpdWdhm8qkdfUWmmDZBg/exec';
+const DEFAULT_URL='https://script.google.com/macros/s/AKfycbxpGWfa6jkgu6S_bEVIJV_l4bHHvxac-uYkIgvNVSRDQ2EPnwiJ1dK6Y90OypLnpnnq7w/exec';
 function getCfg(){return{url:ls(K.url)||DEFAULT_URL,tab:ls(K.tab)||'ТАБЕЛЬ',es:ls(K.es)||'СПРАВОЧНИК',ec:ls(K.ec)||'A',os:ls(K.os)||'СПРАВОЧНИК',oc:ls(K.oc)||'C',secS:ls(K.secS)||'СПРАВОЧНИК',secC:ls(K.secC)||'B',wtS:ls(K.wtS)||'СПРАВОЧНИК',wtC:ls(K.wtC)||'D'}}
 
 // ═══ STATE ═══
 let user=null, userLoc=null, lunchMin=0, lunchShown=false, pc=0, grossMinsState=0;
-let userIP='невідомо', tomorrowPlan=null, tomorrowDesc='';
-let _pendingRows=[];  // rows collected in step5, submitted after step6
+let userIP='невідомо', userIPDep='невідомо', tomorrowPlan=null, tomorrowDesc='';
+let _srvTime=null; // {epoch, fetchedAt} — кеш серверного часу
+// Live timer freeze timestamps (epoch ms; 0 = not frozen)
+let _liveTimerFrozenArr=0, _liveTimerFrozenDep=0;
+let _homeWorkMode=false;
+// Confirm modal callback
+let _confirmCb=null;
+// Home work countdown timer
+let _homeWorkTimer=null;
 
 // ═══ IP FETCH ═══
 async function fetchIP(){
@@ -598,9 +724,18 @@ async function fetchIP(){
     userIP=d.ip||'невідомо';
   }catch(e){userIP='невідомо';}
 }
+async function fetchIPDep(){
+  try{
+    const r=await fetch('https://api.ipify.org?format=json',{cache:'no-store'});
+    const d=await r.json();
+    userIPDep=d.ip||'невідомо';
+  }catch(e){userIPDep='невідомо';}
+}
 
 // ═══ INIT ═══
 document.addEventListener('DOMContentLoaded', async ()=>{
+  // Відновлення стану між сесіями
+  _homeWorkMode = ls('tabel_hm')==='1';
   try{
     const ce=ls(K.ce),co=ls(K.co),cs=ls(K.cs),cw=ls(K.cw);
     if(ce)LIVE_EMPS=JSON.parse(ce);
@@ -609,14 +744,36 @@ document.addEventListener('DOMContentLoaded', async ()=>{
     if(cw)LIVE_WTS=JSON.parse(cw);
   }catch(e){}
   fillSel('s1e',true); fillSel('pwdE',false);
-  setDate();
   updConnDot();
-  const sv=sessionStorage.getItem('tabel_u');
-  if(sv){user=sv;setBadge(sv);goStep(2);}
   document.getElementById('s1p').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
+
+  // Паралельно: серверний час + дані з Sheets (потрібні до перевірки сесії)
   const url=getCfg().url;
-  if(url)loadFromSheets(false);
-  else document.getElementById('noBanner').style.display='block';
+  if(!url) document.getElementById('noBanner').style.display='block';
+  await Promise.all([
+    setDate(),
+    url ? loadFromSheets(false) : Promise.resolve()
+  ]);
+
+  // Тільки після отримання дати перевіряємо збережену сесію
+  const sv=sessionStorage.getItem('tabel_u');
+  if(sv){
+    user=sv;setBadge(sv);
+    const _sa=getArrState();
+    if(_sa){
+      userLoc=_sa.location;userIP=_sa.ip;
+      document.getElementById('s2d').value=_sa.date;
+      document.getElementById('s2m').value=_sa.month;
+      document.getElementById('s2a').value=_sa.arrival;
+      toast('⏩ Прихід '+_sa.arrival+' вже зафіксовано. Вкажіть час відходу.','ok');
+      goStep(4);
+    }else{
+      goStep(2);
+    }
+  }
+
+  startLiveTimer();
+  initFavicon();
 });
 
 // ═══ SHEETS LOAD ═══
@@ -631,7 +788,7 @@ async function loadFromSheets(showMsg=true){
     const d=await r.json();
     if(!d.ok)throw new Error(d.error||'Помилка');
     LIVE_EMPS=d.employees||[];LIVE_OBJS=d.objects||[];LIVE_SECS=d.sections||BUNDLED_SECS;LIVE_WTS=d.worktypes||[];
-    ls_s(K.ce,JSON.stringify(LIVE_EMPS));ls_s(K.co,JSON.stringify(LIVE_OBJS));ls_s(K.cw,JSON.stringify(LIVE_WTS));ls_s(K.sync,new Date().toISOString());
+    ls_s(K.ce,JSON.stringify(LIVE_EMPS));ls_s(K.co,JSON.stringify(LIVE_OBJS));ls_s(K.cs,JSON.stringify(LIVE_SECS));ls_s(K.cw,JSON.stringify(LIVE_WTS));ls_s(K.sync,new Date().toISOString());
     fillSel('s1e',true);fillSel('pwdE',false);
     updConnDot();updAdmStatus();
     if(showMsg){toast(`✅ Завантажено: ${LIVE_EMPS.length} сп., ${LIVE_OBJS.length} об., ${LIVE_WTS.length} вид.`,'ok');document.getElementById('loadTxt').textContent='🔄 Зберегти та завантажити';}
@@ -660,6 +817,11 @@ function openAdmin(){
   document.getElementById('cfgWtS').value=c.wtS;
   document.getElementById('cfgWtC').value=c.wtC.toUpperCase();
   updAdmStatus();
+  // Заповнюємо ручний запис
+  const mrEmp=document.getElementById('mrEmp');
+  mrEmp.innerHTML='<option value="">— Виберіть —</option>';
+  emps().forEach(e=>{const o=document.createElement('option');o.value=e;o.textContent=e;mrEmp.appendChild(o);});
+  document.getElementById('mrDate').value=_localDateStr(new Date());
   document.getElementById('admOv').classList.add('open');
 }
 function closeAdmin(){document.getElementById('admOv').classList.remove('open');}
@@ -694,12 +856,283 @@ function updConnDot(){
   dot.className='cdot'+(url&&sync?' ok':url?' warn':'');
 }
 function showHelp(){document.getElementById('helpOv').classList.add('open');}
+
+async function submitManualEntry(){
+  const emp=document.getElementById('mrEmp').value;
+  const date=document.getElementById('mrDate').value;
+  const arr=document.getElementById('mrArr').value;
+  const loc=document.getElementById('mrLoc').value;
+  if(!emp){toast('⚠️ Виберіть співробітника','err');return;}
+  if(!date){toast('⚠️ Вкажіть дату','err');return;}
+  if(!arr){toast('⚠️ Вкажіть час приходу','err');return;}
+  const cfg=getCfg();
+  if(!cfg.url){toast('⚠️ Google Sheets не налаштовано','err');return;}
+  const month=new Date(date+'T12:00').toLocaleDateString('uk-UA',{month:'long'});
+  const btn=document.getElementById('mrSubmitBtn');
+  btn.innerHTML='<span class="spin"></span> Відправляємо...';btn.disabled=true;
+  try{
+    await fetch(cfg.url,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain'},
+      body:JSON.stringify({type:'arrival',tabSheet:cfg.tab,
+        employee:emp,date,month,ip:'адмін-запис',location:loc,arrival:arr})});
+    toast('✅ Прихід записано: '+emp+' о '+arr,'ok');
+    document.getElementById('mrEmp').value='';
+    document.getElementById('mrArr').value='';
+  }catch(e){
+    toast('❌ Помилка: '+e.message,'err');
+    console.error(e);
+  }
+  btn.innerHTML='📝 Записати прихід';btn.disabled=false;
+}
+
+// ═══ WHITE IP ADMIN ═══
+let _ipData=[];
+function toggleIpSection(){
+  const sec=document.getElementById('ipSection');
+  const btn=event.target;
+  if(sec.style.display==='none'){
+    sec.style.display='block';btn.textContent='▲ Згорнути';
+    if(!_ipData.length)loadWhiteIPs();
+  } else {
+    sec.style.display='none';btn.textContent='▼ Розгорнути';
+  }
+}
+async function loadWhiteIPs(){
+  const cfg=getCfg();if(!cfg.url)return;
+  try{
+    const r=await fetch(cfg.url+'?action=getWhiteIPs',{cache:'no-store'});
+    const d=await r.json();
+    if(d.ok){_ipData=d.ips||[];renderIpRows();}
+  }catch(e){toast('❌ Помилка завантаження IP','err');}
+}
+function renderIpRows(){
+  const wrap=document.getElementById('ipRows');
+  if(!wrap)return;
+  wrap.innerHTML=_ipData.map((row,i)=>`
+    <div style="display:grid;grid-template-columns:1fr 90px 1fr 1fr 32px;gap:5px;margin-bottom:5px;align-items:center">
+      <input class="ip-inp" value="${esc(row.ip)}" placeholder="IP-адреса" style="background:var(--inp);border:1px solid var(--bd);border-radius:6px;padding:6px 8px;font-size:.76rem;color:var(--tx);font-family:monospace" oninput="_ipData[${i}].ip=this.value">
+      <select style="background:var(--inp);border:1px solid var(--bd);border-radius:6px;padding:6px 4px;font-size:.74rem;color:var(--tx)" onchange="_ipData[${i}].location=this.value">
+        ${['Офіс','Дома','Командировка'].map(l=>`<option${row.location===l?' selected':''}>${l}</option>`).join('')}
+      </select>
+      <input value="${esc(row.employee)}" placeholder="Всі / ПІБ" style="background:var(--inp);border:1px solid var(--bd);border-radius:6px;padding:6px 8px;font-size:.76rem;color:var(--tx)" oninput="_ipData[${i}].employee=this.value">
+      <input value="${esc(row.comment)}" placeholder="Коментар" style="background:var(--inp);border:1px solid var(--bd);border-radius:6px;padding:6px 8px;font-size:.74rem;color:var(--tx2)" oninput="_ipData[${i}].comment=this.value">
+      <button onclick="removeIpRow(${i})" style="background:none;border:none;color:var(--err);cursor:pointer;font-size:1rem;padding:0">✕</button>
+    </div>`).join('');
+}
+function addIpRow(){
+  _ipData.push({ip:'',location:'Офіс',employee:'Всі',comment:''});
+  renderIpRows();
+  const inputs=document.querySelectorAll('.ip-inp');
+  if(inputs.length)inputs[inputs.length-1].focus();
+}
+function removeIpRow(i){
+  _ipData.splice(i,1);renderIpRows();
+}
+async function saveWhiteIPs(){
+  const cfg=getCfg();if(!cfg.url){toast('⚠️ URL не вказано','warn');return;}
+  const valid=_ipData.filter(r=>r.ip.trim());
+  try{
+    await fetch(cfg.url,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain'},
+      body:JSON.stringify({type:'saveWhiteIPs',ips:valid})});
+    toast('✅ Список IP збережено ('+valid.length+' записів)','ok');
+  }catch(e){toast('❌ Помилка збереження','err');}
+}
+
 document.getElementById('admOv').addEventListener('click',e=>{if(e.target===e.currentTarget)closeAdmin();});
+
+// ═══ FAVICON ANIMATION ═══
+function initFavicon(){
+  const canvas=document.createElement('canvas');canvas.width=canvas.height=32;
+  const ctx=canvas.getContext('2d');
+  const colors=['#ef4444','#f59e0b','#10b981'];
+  let ci=0;
+  const link=document.getElementById('fav');
+  function draw(){
+    ctx.clearRect(0,0,32,32);
+    ctx.beginPath();ctx.arc(16,16,14,0,Math.PI*2);
+    ctx.fillStyle=colors[ci%3];ctx.fill();
+    link.href=canvas.toDataURL();
+    ci++;
+  }
+  draw();setInterval(draw,1000);
+}
+
+// ═══ LIVE TIME TIMER ═══
+function onManualTimeChange(which){
+  const freeze=Date.now()+10*60*1000;
+  if(which==='arr')_liveTimerFrozenArr=freeze;
+  else _liveTimerFrozenDep=freeze;
+}
+function startLiveTimer(){
+  let _lastDay=new Date().getDate();
+  setInterval(()=>{
+    const now=new Date();
+    const hm=String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0');
+    const ts=Date.now();
+
+    // Скидання о 00:00 якщо форма залишилась відкритою
+    if(now.getDate()!==_lastDay){
+      _lastDay=now.getDate();
+      try{localStorage.removeItem('tabel_home_avail');localStorage.removeItem('tabel_hm');}catch(e){}
+      _homeWorkMode=false;
+      if(_homeWorkTimer){clearInterval(_homeWorkTimer);_homeWorkTimer=null;}
+      if(document.getElementById('step2').classList.contains('active'))prepLocStep();
+      toast('🌅 Новий день — дані оновлено','ok');
+    }
+
+    if(document.getElementById('step3').classList.contains('active')&&ts>_liveTimerFrozenArr){
+      document.getElementById('s2a').value=hm;
+    }
+    if(document.getElementById('step4').classList.contains('active')&&ts>_liveTimerFrozenDep){
+      document.getElementById('s2lv').value=hm;calcH();
+    }
+  },60000);
+}
+
+// ═══ CONFIRM TIME MODAL ═══
+function showConfirm(title,time,date,cb){
+  document.getElementById('confirmTitle').textContent=title;
+  document.getElementById('confirmTime').textContent=time;
+  document.getElementById('confirmDate').textContent=date||'';
+  _confirmCb=cb;
+  const ov=document.getElementById('confirmOv');
+  ov.style.display='flex';
+}
+function confirmOk(){
+  document.getElementById('confirmOv').style.display='none';
+  if(_confirmCb)_confirmCb();
+  _confirmCb=null;
+}
+function confirmCancel(){
+  document.getElementById('confirmOv').style.display='none';
+  _confirmCb=null;
+}
+
+// ═══ HOME WORK WARN MODAL ═══
+function showHomeWarn(depTime, availFrom){
+  document.getElementById('homeWarnDep').textContent='Ви закінчили роботу в офісі о '+depTime+'. Відпочиньте!';
+  document.getElementById('homeWarnTime').textContent=availFrom;
+  document.getElementById('homeWarnOv').style.display='flex';
+}
+
+// ═══ HOME WORK COUNTDOWN ═══
+function startHomeWorkCountdown(departureMins){
+  if(_homeWorkTimer)clearInterval(_homeWorkTimer);
+  const availMins=(departureMins+90)%1440;
+  const availStr=String(Math.floor(availMins/60)).padStart(2,'0')+':'+String(availMins%60).padStart(2,'0');
+
+  // Зберігаємо в localStorage для кроку 2
+  const _nd=_srvTime?new Date(_srvTime.epoch+(Date.now()-_srvTime.fetchedAt)):new Date();
+  ls_s('tabel_home_avail',JSON.stringify({date:_localDateStr(_nd),employee:user,availFrom:availStr,availFromMins:availMins}));
+
+  const nowMins=nowFromServer()??_deviceNowMins();
+  const waitMs=Math.max(0,(availMins-nowMins)*60*1000);
+  const enableTs=Date.now()+waitMs;
+
+  const btn=document.getElementById('homeWorkBtn');
+  const cd=document.getElementById('homeWorkCountdown');
+  const timeEl=document.getElementById('homeWorkTime');
+  const infoEl=document.getElementById('homeWorkInfo');
+  if(infoEl)infoEl.style.display='block';
+  if(timeEl)timeEl.textContent=availStr;
+  if(btn)btn.textContent='🏠 Продовжити роботу вдома · з '+availStr;
+
+  function tick(){
+    const rem=enableTs-Date.now();
+    if(rem<=0){
+      if(btn){btn.disabled=false;btn.textContent='🏠 Продовжити роботу вдома · зараз!';}
+      if(cd)cd.textContent='✅ Можна розпочати роботу вдома!';
+      if(timeEl)timeEl.style.color='var(--ok)';
+      if(_homeWorkTimer){clearInterval(_homeWorkTimer);_homeWorkTimer=null;}
+    } else {
+      const m=Math.ceil(rem/60000);
+      if(cd)cd.textContent='Активація сеансу можлива через '+(m>=60?Math.floor(m/60)+' год '+(m%60?m%60+' хв':''):m+' хв')+' (час на дорогу та відпочинок)';
+      if(btn)btn.disabled=true;
+      if(timeEl)timeEl.style.color='var(--tx2)';
+    }
+  }
+  tick();
+  if(waitMs>0)_homeWorkTimer=setInterval(tick,30000);
+}
+async function continueFromHome(){
+  if(_homeWorkTimer)clearInterval(_homeWorkTimer);
+  _homeWorkMode=true;
+  ls_s('tabel_hm','1');
+  pc=0;userLoc=null;lunchMin=0;lunchShown=false;grossMinsState=0;
+  tomorrowPlan=null;tomorrowDesc='';
+  document.getElementById('plist').innerHTML='';
+  document.getElementById('s2lv').value='17:00';
+  document.getElementById('s2l').value='';
+  clearArrState();
+  await setDate();
+  goStep(2);
+}
+
+// ═══ REMAINING TIME INDICATOR ═══
+function updateRemaining(){
+  const netMins=(grossMinsState||0)-(lunchMin||0);
+  const block=document.getElementById('remainBlock');
+  const val=document.getElementById('remainVal');
+  const btn=document.getElementById('projNextBtn');
+  if(!block)return;
+  if(netMins<=0){block.style.display='none';if(btn)btn.disabled=false;return;}
+  let totalProj=0;
+  document.querySelectorAll('.pcard').forEach(card=>{
+    const id=card.id.replace('pc_','');
+    const h=parseInt(document.getElementById('ptimeh_'+id)?.value,10)||0;
+    const m=parseInt(document.getElementById('ptimem_'+id)?.value,10)||0;
+    totalProj+=h*60+m;
+  });
+  const diff=netMins-totalProj;
+  block.style.display='block';
+  if(diff===0){
+    block.style.cssText='display:block;margin-top:12px;border-radius:8px;padding:10px 14px;font-size:.84rem;background:rgba(16,185,129,.1);border:1.5px solid rgba(16,185,129,.4)';
+    val.style.color='var(--ok)';val.textContent='0:00 ✓';
+    if(btn)btn.disabled=false;
+  } else if(diff>0){
+    block.style.cssText='display:block;margin-top:12px;border-radius:8px;padding:10px 14px;font-size:.84rem;background:rgba(239,68,68,.1);border:1.5px solid rgba(239,68,68,.4)';
+    val.style.color='var(--err)';val.textContent=minsPretty(diff);
+    if(btn)btn.disabled=true;
+  } else {
+    block.style.cssText='display:block;margin-top:12px;border-radius:8px;padding:10px 14px;font-size:.84rem;background:rgba(239,68,68,.1);border:1.5px solid rgba(239,68,68,.4)';
+    val.style.color='var(--err)';val.textContent='−'+minsPretty(-diff)+' (перебір!)';
+    if(btn)btn.disabled=true;
+  }
+}
+
+// ═══ SECTION AUTOCOMPLETE ═══
+let secHi={};
+function secFilt(i,q){
+  const lst=document.getElementById('secl_'+i);
+  document.getElementById('psec_'+i).value='';
+  secHi[i]=-1;
+  const ql=(q||'').trim().toLowerCase();
+  const all=secs();
+  const hits=ql.length<1?all.slice(0,60):all.filter(s=>s.toLowerCase().includes(ql)).slice(0,60);
+  if(!hits.length){lst.innerHTML='<div class="ac-empty">Нічого не знайдено</div>';lst.classList.add('open');return;}
+  lst.innerHTML=hits.map((s,idx)=>`<div class="aci" data-idx="${idx}" data-val="${esc(s)}" onmousedown="secSel(${i},this)"><div class="aci-name" style="font-size:.8rem">${esc(s.length>90?s.slice(0,90)+'…':s)}</div></div>`).join('');
+  lst.classList.add('open');
+}
+function secKey(e,i){
+  const lst=document.getElementById('secl_'+i);if(!lst.classList.contains('open'))return;
+  const items=lst.querySelectorAll('.aci');if(!items.length)return;
+  if(e.key==='ArrowDown'){e.preventDefault();secHi[i]=Math.min((secHi[i]??-1)+1,items.length-1);}
+  else if(e.key==='ArrowUp'){e.preventDefault();secHi[i]=Math.max((secHi[i]??0)-1,0);}
+  else if(e.key==='Enter'){e.preventDefault();if((secHi[i]??-1)>=0&&items[secHi[i]])secSel(i,items[secHi[i]]);return;}
+  else if(e.key==='Escape'){lst.classList.remove('open');return;}
+  items.forEach((el,idx)=>el.classList.toggle('hi',idx===secHi[i]));
+  items[secHi[i]]?.scrollIntoView({block:'nearest'});
+}
+function secSel(i,el){
+  const val=el.dataset.val||'';
+  document.getElementById('psec_pin_'+i).value=val;
+  document.getElementById('psec_'+i).value=val;
+  document.getElementById('secl_'+i).classList.remove('open');
+}
 document.getElementById('helpOv').addEventListener('click',e=>{if(e.target===e.currentTarget)document.getElementById('helpOv').classList.remove('open');});
-document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeAdmin();document.getElementById('helpOv').classList.remove('open');}});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeAdmin();closeStats();closeMonitoring();document.getElementById('helpOv').classList.remove('open');}});
 
 // ═══ PASSWORDS ═══
-const DEFAULT_PWDS={'Любченко С.':'30+11+80'};
+const DEFAULT_PWDS={'Любченко С.':'30+11+80++'};
 function getPwd(n){return ls('pwd_'+n)||(DEFAULT_PWDS[n]||'1234');}
 function changePwd(){
   const n=document.getElementById('pwdE').value,p=document.getElementById('pwdV').value.trim();
@@ -710,13 +1143,14 @@ function changePwd(){
 }
 
 // ═══ AUTH ═══
-function doLogin(){
+async function doLogin(){
   const n=document.getElementById('s1e').value,p=document.getElementById('s1p').value;
   if(!n){toast('⚠️ Виберіть ім\'я','err');return;}
   if(!p){toast('⚠️ Введіть пароль','err');return;}
   if(p!==getPwd(n)){toast('❌ Невірний пароль','err');document.getElementById('s1p').select();return;}
   user=n;sessionStorage.setItem('tabel_u',n);setBadge(n);
-  // Check if today's arrival already recorded → jump to departure step
+
+  // Пріоритет 1: localStorage (швидкий шлях)
   const arr=getArrState();
   if(arr){
     userLoc=arr.location;userIP=arr.ip;
@@ -725,16 +1159,49 @@ function doLogin(){
     document.getElementById('s2a').value=arr.arrival;
     toast('⏩ Прихід вже зафіксовано о '+arr.arrival+'. Вкажіть час відходу.','ok');
     goStep(4);
-  } else {
-    toast('👋 Ласкаво просимо, '+n.split(' ')[0]+'!','ok');
-    goStep(2);
+    return;
   }
+
+  // Пріоритет 2: перевірка через Google Sheets
+  const cfg=getCfg();
+  if(cfg.url){
+    const btn=document.querySelector('#step1 .btn-p');
+    btn.innerHTML='<span class="spin"></span> Перевіряємо...';btn.disabled=true;
+    try{
+      const _td=_srvTime?new Date(_srvTime.epoch+(Date.now()-_srvTime.fetchedAt)):new Date();
+      const today=_td.getFullYear()+'-'+String(_td.getMonth()+1).padStart(2,'0')+'-'+String(_td.getDate()).padStart(2,'0');
+      const r=await fetch(cfg.url+'?action=checkSession'
+        +'&employee='+encodeURIComponent(n)
+        +'&date='+today
+        +'&tabSheet='+encodeURIComponent(cfg.tab),{cache:'no-store'});
+      const d=await r.json();
+      if(d.ok&&d.hasOpenSession){
+        userLoc=d.location||'';userIP=d.ip||'невідомо';
+        const _rd=d.date||today,_rm=d.month||'',_ra=sanitizeTime(d.arrival||'');
+        document.getElementById('s2d').value=_rd;
+        document.getElementById('s2m').value=_rm;
+        document.getElementById('s2a').value=_ra;
+        saveArrState(_rd,_rm,_ra);
+        btn.innerHTML='Увійти →';btn.disabled=false;
+        toast('⏩ Незакрита сесія в таблиці. Вкажіть час відходу.','ok');
+        goStep(4);
+        return;
+      }
+    }catch(err){console.warn('checkSession error:',err);}
+    btn.innerHTML='Увійти →';btn.disabled=false;
+  }
+
+  toast('👋 Ласкаво просимо, '+n.split(' ')[0]+'!','ok');
+  goStep(2);
 }
 function logout(){
   if(!confirm('Вийти?'))return;
-  user=null;userLoc=null;sessionStorage.removeItem('tabel_u');
+  user=null;userLoc=null;_homeWorkMode=false;
+  try{localStorage.removeItem('tabel_hm');}catch(e){}
+  sessionStorage.removeItem('tabel_u');
   document.getElementById('s1p').value='';
   document.getElementById('ubadge').classList.remove('show');
+  document.getElementById('statsBtn').style.display='none';
   clearArrState();
   goStep(1);
 }
@@ -743,6 +1210,7 @@ function setBadge(n){
   document.getElementById('uav').textContent=((p[0]||'')[0]||'').toUpperCase()+((p[1]||'')[0]||'').toUpperCase();
   document.getElementById('uname').textContent=n;
   document.getElementById('ubadge').classList.add('show');
+  document.getElementById('statsBtn').style.display='flex';
 }
 
 // ═══ NAVIGATION ═══
@@ -761,27 +1229,82 @@ function goStep(n){
     else if(i===psN)ps.classList.add('active');
   }
   if(n===2){prepLocStep();if(userIP==='невідомо')fetchIP();}
-  if(n===4)prepDepartureStep();
-  if(n===6){if(pc===0)addProj();dismissTimeWarn();}
+  if(n===3){_liveTimerFrozenArr=0;}
+  if(n===4){prepDepartureStep();_liveTimerFrozenDep=0;}
+  if(n===6){
+    if(pc===0)addProj();
+    updateRemaining();
+    if(!wts().length){
+      toast('⏳ Завантаження видів робіт...','warn');
+      loadFromSheets(false).then(()=>{
+        if(wts().length){
+          document.querySelectorAll('[id^="pwt_"]').forEach(sel=>{
+            const cur=sel.value;
+            sel.innerHTML='<option value="">— Оберіть —</option>'+wts().map(w=>`<option>${esc(w)}</option>`).join('');
+            if(cur)sel.value=cur;
+          });
+          toast('✅ Виды робіт завантажено','ok');
+        }
+      });
+    }
+  }
   if(n===7)prepTomorrow();
   window.scrollTo({top:0,behavior:'smooth'});
 }
 
 // ═══ LOCATION STEP ═══
 function prepLocStep(){
-  const today=document.getElementById('s2d').value||new Date().toISOString().slice(0,10);
+  const _nd2=_srvTime?new Date(_srvTime.epoch+(Date.now()-_srvTime.fetchedAt)):new Date();
+  const today=document.getElementById('s2d').value||_localDateStr(_nd2);
   const conflict=checkOfficeToday(today);
-  const card=document.getElementById('loc_office');
+  const offCard=document.getElementById('loc_office');
+  const freeCard=document.getElementById('loc_free');
+  const homeCard=document.getElementById('loc_home');
   const badge=document.getElementById('loc_office_badge');
   const warn=document.getElementById('locWarn');
-  if(conflict){
-    card.classList.add('disabled');
+  const hwBanner=document.getElementById('homeWorkBanner');
+
+  // Скидаємо стан
+  document.querySelectorAll('.loc-card').forEach(c=>c.classList.remove('selected'));
+  freeCard.classList.remove('disabled');
+  hwBanner.style.display='none';
+  warn.classList.remove('show');
+
+  // Показуємо час доступності "Дома" з localStorage
+  const homeAvailEl=document.getElementById('loc_home_avail');
+  if(homeAvailEl){
+    try{
+      const ha=JSON.parse(ls('tabel_home_avail')||'null');
+      if(ha&&ha.date===today&&ha.employee===user){
+        const nowMins=nowFromServer()??_deviceNowMins();
+        if(ha.availFromMins>nowMins){
+          homeAvailEl.textContent='⏰ Доступно з '+ha.availFrom;
+          homeAvailEl.style.display='block';
+          homeAvailEl.style.color='var(--warn)';
+        } else {
+          homeAvailEl.textContent='✓ Доступно з '+ha.availFrom;
+          homeAvailEl.style.display='block';
+          homeAvailEl.style.color='var(--ok)';
+        }
+      } else { homeAvailEl.style.display='none'; }
+    }catch(e){ homeAvailEl.style.display='none'; }
+  }
+
+  if(_homeWorkMode){
+    // Режим "продовжити вдома" — тільки Дома
+    offCard.classList.add('disabled');
+    badge.style.display='inline-block';
+    freeCard.classList.add('disabled');
+    hwBanner.style.display='block';
+    // Підсвічуємо Дома як єдиний вибір
+    homeCard.classList.add('selected');
+  } else if(conflict){
+    offCard.classList.add('disabled');
     badge.style.display='inline-block';
     warn.classList.add('show');
   } else {
-    card.classList.remove('disabled');
+    offCard.classList.remove('disabled');
     badge.style.display='none';
-    warn.classList.remove('show');
   }
 }
 function checkOfficeToday(date){
@@ -789,20 +1312,75 @@ function checkOfficeToday(date){
   return recs.some(r=>r.employee===user&&r.date===date&&r.location==='Офіс');
 }
 function selectLoc(loc){
+  if(loc==='Дома'){
+    try{
+      const ha=JSON.parse(ls('tabel_home_avail')||'null');
+      const _nd=_srvTime?new Date(_srvTime.epoch+(Date.now()-_srvTime.fetchedAt)):new Date();
+      const today=_localDateStr(_nd);
+      if(ha&&ha.date===today&&ha.employee===user){
+        const nowMins=nowFromServer()??_deviceNowMins();
+        if(ha.availFromMins>nowMins){
+          // Ще не час — показуємо попередження, нікуди не переходимо
+          const depMins=(ha.availFromMins-90+1440)%1440;
+          const depStr=String(Math.floor(depMins/60)).padStart(2,'0')+':'+String(depMins%60).padStart(2,'0');
+          showHomeWarn(depStr,ha.availFrom);
+          return;
+        }
+        // Час настав — перший клік лише підсвічує, другий — переходить
+        const homeCard=document.getElementById('loc_home');
+        if(!homeCard.classList.contains('selected')){
+          document.querySelectorAll('.loc-card').forEach(c=>c.classList.remove('selected'));
+          homeCard.classList.add('selected');
+          userLoc=loc;
+          return;
+        }
+        // Другий клік — падаємо вниз до переходу
+      }
+    }catch(e){}
+  }
   userLoc=loc;
   document.querySelectorAll('.loc-card').forEach(c=>c.classList.remove('selected'));
   const map={'Офіс':'loc_office','Дома':'loc_home','Командировка':'loc_free'};
   document.getElementById(map[loc])?.classList.add('selected');
-  // set current time in arrival input
   const now=new Date();
   document.getElementById('s2a').value=
     String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0');
   setTimeout(()=>goStep(3),220);
 }
 
+// ═══ SERVER TIME ═══
+async function fetchServerTime(){
+  const url=getCfg().url;
+  if(!url){_srvTime=null;return null;}
+  try{
+    const r=await fetch(url+'?action=getServerTime',{mode:'cors'});
+    const d=await r.json();
+    if(d.ok){_srvTime={epoch:d.epoch,fetchedAt:Date.now(),date:d.date,time:d.time};return _srvTime;}
+  }catch(e){}
+  _srvTime=null;return null;
+}
+// Повертає поточний час сервера в хвилинах від 00:00 (або null якщо немає кешу)
+function nowFromServer(){
+  if(!_srvTime)return null;
+  const approx=new Date(_srvTime.epoch+(Date.now()-_srvTime.fetchedAt));
+  return approx.getHours()*60+approx.getMinutes();
+}
+function _deviceNowMins(){const d=new Date();return d.getHours()*60+d.getMinutes();}
+
 // ═══ DATE/TIME ═══
-function setDate(){
-  document.getElementById('s2d').value=new Date().toISOString().slice(0,10);
+async function setDate(){
+  const srv=await fetchServerTime();
+  let _d;
+  if(srv){
+    // Парсимо серверну дату (yyyy-MM-dd)
+    const [y,mo,dy]=srv.date.split('-').map(Number);
+    _d=new Date(y,mo-1,dy);
+    // Також встановлюємо час приходу за серверним часом
+    document.getElementById('s2a').value=srv.time;
+  } else {
+    _d=new Date();
+  }
+  document.getElementById('s2d').value=_d.getFullYear()+'-'+String(_d.getMonth()+1).padStart(2,'0')+'-'+String(_d.getDate()).padStart(2,'0');
   onDate();calcH();
 }
 function onDate(){
@@ -810,35 +1388,41 @@ function onDate(){
   if(v)document.getElementById('s2m').value=MONTHS[new Date(v+'T12:00').getMonth()];
 }
 
-function minsToStr(m){return m>0?Math.floor(m/60)+':'+(m%60+'').padStart(2,'0')+' год':'—';}
-function timeToMins(t){if(!t)return 0;const[h,m]=t.split(':').map(Number);return h*60+m;}
+function minsToStr(m){return(m>0)?Math.floor(m/60)+':'+(m%60+'').padStart(2,'0'):'0:00';}
+function minsPretty(m){if(!(m>0))return '—';const h=Math.floor(m/60),mm=m%60;return h+(mm?':'+(''+mm).padStart(2,'0'):'')+' год';}
+function timeToMins(t){if(!t||t==='—')return 0;const x=String(t).match(/(\d+):(\d+)/);return x?(+x[1])*60+(+x[2]):0;}
 
 function calcH(){
   const a=document.getElementById('s2a').value,l=document.getElementById('s2lv').value;
   grossMinsState=timeToMins(l)-timeToMins(a);
   const disp=document.getElementById('hoursDisplay');
   if(!a||!l){disp.innerHTML='<div class="hrow"><span class="hrow-lbl">⏱ Підсумок:</span><span class="hrow-val main">—</span></div>';return;}
-  disp.innerHTML=`<div class="hrow"><span class="hrow-lbl">⏱ Підсумок робочого часу:</span><span class="hrow-val main">${minsToStr(grossMinsState)}</span></div>`+(grossMinsState>480?'<div class="hrow"><span class="hrow-lbl" style="color:var(--warn)">🍽 Наступний крок — вкажіть обід</span><span class="hrow-val" style="color:var(--tx3);font-size:.75rem">більше 8 год</span></div>':'');
+  disp.innerHTML=`<div class="hrow"><span class="hrow-lbl">⏱ Підсумок робочого часу:</span><span class="hrow-val main">${minsPretty(grossMinsState)}</span></div>`+(grossMinsState>480?'<div class="hrow"><span class="hrow-lbl" style="color:var(--warn)">🍽 Наступний крок — вкажіть обід</span><span class="hrow-val" style="color:var(--tx3);font-size:.75rem">більше 8 год</span></div>':'');
 }
 
 function afterTime(){
-  const a=document.getElementById('s2a').value,l=document.getElementById('s2lv').value;
+  const l=document.getElementById('s2lv').value;
   if(!l){toast('⚠️ Вкажіть час відходу','err');return;}
+  {const _nm=nowFromServer()??( new Date().getHours()*60+new Date().getMinutes() ),_dm=timeToMins(l),_adm=(user===ADMIN_USER);
+   if(_dm>_nm){if(_adm)toast('⚠️ [ТЕСТ] Час у майбутньому — адмін може продовжити','warn');else{toast('⚠️ Час відходу не може бути у майбутньому','err');return;}}}
   if(grossMinsState<=0){toast('⚠️ Час відходу має бути пізніше приходу','err');return;}
-  // sync s2l hidden input so collectRows() picks it up
-  document.getElementById('s2l').value=l;
-  if(grossMinsState>480){
-    lunchShown=true;lunchMin=0;
-    document.getElementById('lunchCustom').value='';
-    document.querySelectorAll('.lo').forEach(el=>el.classList.remove('selected'));
-    document.getElementById('lunchNextBtn').disabled=true;
-    document.getElementById('lunchNote').textContent=
-      `Ви відпрацювали ${minsToStr(grossMinsState)}. Вкажіть тривалість обідньої перерви (мін. 30 хв) — цей час буде відрахований.`;
-    goStep(5);
-  } else {
-    lunchShown=false;lunchMin=0;
-    goStep(6);
-  }
+  if(grossMinsState<120){toast('⚠️ Мінімальний робочий день — 2 години','err');return;}
+  showConfirm('Ваш час відходу',l,'',()=>{
+    _liveTimerFrozenDep=0;
+    document.getElementById('s2l').value=l;
+    if(grossMinsState>480){
+      lunchShown=true;lunchMin=0;
+      document.getElementById('lunchCustom').value='';
+      document.querySelectorAll('.lo').forEach(el=>el.classList.remove('selected'));
+      document.getElementById('lunchNextBtn').disabled=true;
+      document.getElementById('lunchNote').textContent=
+        `Ви відпрацювали ${minsPretty(grossMinsState)}. Вкажіть тривалість обідньої перерви (мін. 30 хв) — цей час буде відрахований.`;
+      goStep(5);
+    } else {
+      lunchShown=false;lunchMin=0;
+      goStep(6);
+    }
+  });
 }
 
 // ═══ LUNCH STEP ═══
@@ -914,31 +1498,9 @@ function checkTmReady(){
   }
 }
 
-// ═══ TIME CHECKSUM ═══
-function dismissTimeWarn(){
-  document.getElementById('timeCheckWarn').style.display='none';
-}
-function showTimeCheckWarn(netMins, projMins){
-  const netH=Math.floor(netMins/60), netM=netMins%60;
-  const prH=Math.floor(projMins/60), prM=projMins%60;
-  const diffMins=Math.abs(netMins-projMins);
-  const diffH=Math.floor(diffMins/60), diffM=diffMins%60;
-  const netStr=netH+':'+(netM<10?'0':'')+netM;
-  const prStr=prH+':'+(prM<10?'0':'')+prM;
-  const diffStr=diffH+':'+(diffM<10?'0':'')+diffM;
-  const direction=projMins<netMins?'не вистачає':'зайвий';
-  document.getElementById('timeCheckDetail').innerHTML=
-    'Відпрацьовано (чисто): <b>'+netStr+'</b><br>'+
-    'По проектах: <b>'+prStr+'</b><br>'+
-    'Розбіжність: <b>'+diffStr+'</b> ('+direction+')';
-  document.getElementById('timeCheckWarn').style.display='block';
-  document.getElementById('timeCheckWarn').scrollIntoView({behavior:'smooth',block:'nearest'});
-}
-
 // ═══ VALIDATE PROJECTS ═══
 function goToTomorrow(){
   const cards=[...document.querySelectorAll('.pcard')];
-  let totalProjMins=0;
   for(const card of cards){
     const id=card.id.replace('pc_','');
     let code=document.getElementById('pcode_'+id).value.trim();
@@ -951,19 +1513,10 @@ function goToTomorrow(){
     if(!sec){toast('⚠️ Вкажіть розділ у проекті '+id,'err');card.scrollIntoView({behavior:'smooth',block:'center'});return;}
     const ph=parseInt(document.getElementById('ptimeh_'+id).value,10)||0;
     const pm=parseInt(document.getElementById('ptimem_'+id).value,10)||0;
-    const projMinsThis=ph*60+pm;
-    if(projMinsThis===0){toast('⚠️ Вкажіть витрачений час у проекті '+id,'err');card.scrollIntoView({behavior:'smooth',block:'center'});return;}
+    if(ph*60+pm===0){toast('⚠️ Вкажіть витрачений час у проекті '+id,'err');card.scrollIntoView({behavior:'smooth',block:'center'});return;}
     const desc=document.getElementById('pdesc_'+id).value.trim();
     if(!desc){toast('⚠️ Вкажіть опис робіт у проекті '+id,'err');card.scrollIntoView({behavior:'smooth',block:'center'});return;}
-    totalProjMins+=projMinsThis;
   }
-  // checksum: project total vs net work time
-  const netMins=(grossMinsState||0)-(lunchMin||0);
-  if(netMins>0 && totalProjMins!==netMins){
-    showTimeCheckWarn(netMins, totalProjMins);
-    return;
-  }
-  dismissTimeWarn();
   goStep(7);
 }
 
@@ -1002,20 +1555,20 @@ function addProj(){
         ${wts().map(w=>`<option>${esc(w)}</option>`).join('')}
       </select>
     </div>
-    <div class="f">
+    <div class="f acw">
       <label>📋 Розділ <span style="color:var(--err)">*</span></label>
-      <select id="psec_${i}">
-        <option value="">— Оберіть —</option>
-        ${secs().map(s=>`<option>${esc(s)}</option>`).join('')}
-      </select>
+      <input type="text" id="psec_pin_${i}" autocomplete="off" placeholder="Введіть шифр або назву розділу..."
+        oninput="secFilt(${i},this.value)" onfocus="secFilt(${i},this.value)" onkeydown="secKey(event,${i})">
+      <div class="acl" id="secl_${i}"></div>
+      <input type="hidden" id="psec_${i}">
     </div>
     <div class="f">
       <label>⏱ Витрачений час <span style="color:var(--err)">*</span></label>
       <div style="display:flex;gap:8px;align-items:center">
-        <select id="ptimeh_${i}" style="flex:1">
+        <select id="ptimeh_${i}" style="flex:1" onchange="updateRemaining()">
           ${Array.from({length:15},(_,h)=>`<option value="${h}">${h} год</option>`).join('')}
         </select>
-        <select id="ptimem_${i}" style="flex:1">
+        <select id="ptimem_${i}" style="flex:1" onchange="updateRemaining()">
           ${Array.from({length:60},(_,m)=>`<option value="${m}">${m<10?'0'+m:m} хв</option>`).join('')}
         </select>
       </div>
@@ -1027,12 +1580,16 @@ function addProj(){
   wrap.appendChild(div);
   document.addEventListener('click',function h(e){
     if(!document.getElementById('pc_'+i)){document.removeEventListener('click',h);return;}
-    if(!e.target.closest('#pc_'+i))document.getElementById('acl_'+i)?.classList.remove('open');
+    if(!e.target.closest('#pc_'+i)){
+      document.getElementById('acl_'+i)?.classList.remove('open');
+      document.getElementById('secl_'+i)?.classList.remove('open');
+    }
   });
 }
 function rmProj(i){
   if(document.querySelectorAll('.pcard').length<=1){toast('⚠️ Мінімум 1 проект','err');return;}
   document.getElementById('pc_'+i)?.remove();
+  updateRemaining();
 }
 function acFilt(i,q){
   const lst=document.getElementById('acl_'+i);
@@ -1064,12 +1621,25 @@ function acSel(i,el){
 }
 
 // ═══ ARRIVAL STATE (localStorage) ═══
+function sanitizeTime(t){
+  if(!t)return '';
+  const hm=String(t).match(/(\d{1,2}):(\d{2})/);
+  if(hm)return hm[1].padStart(2,'0')+':'+hm[2];
+  try{const d=new Date(t);if(!isNaN(d.getTime()))return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');}catch(e){}
+  return t;
+}
+function _localDateStr(d){
+  const dt=d||new Date();
+  return dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0');
+}
 function getArrState(){
   try{
     const v=ls('tabel_arr');if(!v)return null;
     const obj=JSON.parse(v);
-    const today=new Date().toISOString().slice(0,10);
-    return(obj.user===user&&obj.date===today)?obj:null;
+    const today=_localDateStr(new Date());
+    if(obj.user!==user||obj.date!==today)return null;
+    obj.arrival=sanitizeTime(obj.arrival);
+    return obj;
   }catch(e){return null;}
 }
 function saveArrState(date,month,arrival){
@@ -1086,29 +1656,32 @@ async function sendArrival(){
   const month=document.getElementById('s2m').value;
   if(!date){toast('⚠️ Вкажіть дату','err');return;}
   if(!arr){toast('⚠️ Вкажіть час приходу','err');return;}
-
-  saveArrState(date,month,arr);
-
-  const btn=document.getElementById('arrBtn');
-  btn.innerHTML='<span class="spin"></span> Відправляємо...';btn.disabled=true;
-
-  const cfg=getCfg();
-  const url=cfg.url;
-  if(url){
-    try{
-      await fetch(url,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain'},
-        body:JSON.stringify({type:'arrival',tabSheet:cfg.tab,
-          employee:user,date,month,ip:userIP,location:userLoc||'',arrival:arr})});
-    }catch(e){console.warn('Arrival POST error:',e);}
-  }
-
-  btn.innerHTML='✅ Відмітити прихід →';btn.disabled=false;
-  toast('✅ Прихід '+arr+' зафіксовано!','ok');
-  goStep(4);
+  {const _nm=nowFromServer()??( new Date().getHours()*60+new Date().getMinutes() ),_am=timeToMins(arr),_adm=(user===ADMIN_USER);
+   if(_am>_nm){if(_adm)toast('⚠️ [ТЕСТ] Час у майбутньому — адмін може продовжити','warn');else{toast('⚠️ Час приходу не може бути у майбутньому','err');return;}}
+   else if(_am<_nm-120){if(_adm)toast('⚠️ [ТЕСТ] Прихід >2 год тому — адмін може продовжити','warn');else{toast('⚠️ Час приходу не може бути раніше ніж на 2 год від поточного часу','err');return;}}}
+  const dateLabel=new Date(date+'T12:00').toLocaleDateString('uk-UA',{day:'numeric',month:'long'});
+  showConfirm('Ваш час приходу',arr,dateLabel+' · '+userLoc,async()=>{
+    _liveTimerFrozenArr=0;
+    saveArrState(date,month,arr);
+    const btn=document.getElementById('arrBtn');
+    btn.innerHTML='<span class="spin"></span> Відправляємо...';btn.disabled=true;
+    const cfg=getCfg();
+    if(cfg.url){
+      try{
+        await fetch(cfg.url,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain'},
+          body:JSON.stringify({type:'arrival',tabSheet:cfg.tab,
+            employee:user,date,month,ip:userIP,location:userLoc||'',arrival:arr})});
+      }catch(e){console.warn('Arrival POST error:',e);}
+    }
+    btn.innerHTML='✅ Відмітити прихід →';btn.disabled=false;
+    toast('✅ Прихід '+arr+' зафіксовано!','ok');
+    goStep(4);
+  });
 }
 
 // ═══ PREP DEPARTURE STEP ═══
-function prepDepartureStep(){
+async function prepDepartureStep(){
+  await fetchIPDep();
   const arr=getArrState();
   const panel=document.getElementById('arrInfoPanel');
   if(arr){
@@ -1139,19 +1712,19 @@ function collectRows(){
     const _ph=parseInt(document.getElementById('ptimeh_'+id).value,10)||0;
     const _pm=parseInt(document.getElementById('ptimem_'+id).value,10)||0;
     const _ts=_ph+':'+(_pm<10?'0':'')+_pm;
-    projs.push({code,name,wt:document.getElementById('pwt_'+id).value,timeSpent:_ts,sec:document.getElementById('psec_'+id).value,desc:document.getElementById('pdesc_'+id).value.trim()});
+    projs.push({code,name,wt:document.getElementById('pwt_'+id).value,timeSpent:_ts,section:document.getElementById('psec_'+id).value,desc:document.getElementById('pdesc_'+id).value.trim()});
   }
   const date=document.getElementById('s2d').value,month=document.getElementById('s2m').value,
         arr=document.getElementById('s2a').value,lv=document.getElementById('s2l').value;
   const netMins=grossMinsState-lunchMin;
   return projs.map(p=>({
-    date,month,employee:user,ip:userIP,location:userLoc||'',
+    date,month,employee:user,ip:userIP,ipDep:userIPDep,location:userLoc||'',
     arrival:arr,departure:lv,
     lunchMin:lunchMin>0?lunchMin:'',
-    lunchStr:lunchMin>0?minsToStr(lunchMin):'',
+    lunchStr:lunchMin>0?minsPretty(lunchMin):'',
     hoursGross:minsToStr(grossMinsState),
     hours:minsToStr(netMins),
-    code:p.code,name:p.name,workType:p.wt,timeSpent:p.timeSpent,section:p.sec,desc:p.desc,
+    code:p.code,name:p.name,workType:p.wt,timeSpent:p.timeSpent,section:p.section,desc:p.desc,
     tomorrowPlan:'',tomorrowDesc:''   // filled later
   }));
 }
@@ -1163,6 +1736,8 @@ async function doFinalSubmit(){
   tomorrowDesc=document.getElementById('tmDesc').value.trim();
   if(needDesc&&!tomorrowDesc){toast('⚠️ Вкажіть причину','err');document.getElementById('tmDesc').focus();return;}
 
+  // Переконуємось що IP відходу зафіксовано
+  if(userIPDep==='невідомо')await fetchIPDep();
   const rows=collectRows().map(r=>({...r,tomorrowPlan,tomorrowDesc}));
 
   // Save locally
@@ -1185,8 +1760,23 @@ async function doFinalSubmit(){
     toast('💾 Збережено локально. Google Sheets не налаштовано.','warn');
   }
   btn.innerHTML='📤 Відправити';btn.disabled=false;
+  const depTime=document.getElementById('s2l').value;
+  const wasHomeMode=_homeWorkMode;
+  _homeWorkMode=false;
+  try{localStorage.removeItem('tabel_hm');}catch(e){}
   clearArrState();
   showSuccess(rows);pc=0;goStep(8);
+  // Показуємо кнопку "вдома" тільки якщо це була офісна сесія (не сама home-session)
+  const homeBtn=document.getElementById('homeWorkBtn');
+  const homeInfo=document.getElementById('homeWorkInfo');
+  if(wasHomeMode||userLoc==='Дома'){
+    if(homeBtn)homeBtn.style.display='none';
+    if(homeInfo)homeInfo.style.display='none';
+  } else {
+    if(homeBtn){homeBtn.style.display='';homeBtn.disabled=true;}
+    if(homeInfo)homeInfo.style.display='none';
+    if(depTime){const[dh,dm]=depTime.split(':').map(Number);startHomeWorkCountdown(dh*60+dm);}
+  }
 }
 
 function showSuccess(rows){
@@ -1205,21 +1795,228 @@ function showSuccess(rows){
     h+=`<div class="sumrow"><div class="sumkey">🏗 Проект ${i+1}</div><div class="sumval"><b>${esc(r.code)}</b>${r.name?'<br><span style="font-size:.73rem;color:var(--tx2)">'+esc(r.name)+'</span>':''}</div></div>`;
     if(r.timeSpent)h+=`<div class="sumrow"><div class="sumkey" style="padding-left:8px">⏱ Час</div><div class="sumval" style="font-size:.76rem;color:var(--ach);font-weight:600">${esc(r.timeSpent)}</div></div>`;
     if(r.workType)h+=`<div class="sumrow"><div class="sumkey" style="padding-left:8px">⚒ Вид робіт</div><div class="sumval" style="font-size:.76rem">${esc(r.workType)}</div></div>`;
-    if(r.sec) h+=`<div class="sumrow"><div class="sumkey" style="padding-left:8px">📋 Розділ</div><div class="sumval" style="font-size:.76rem">${esc(r.sec)}</div></div>`;
+    if(r.section) h+=`<div class="sumrow"><div class="sumkey" style="padding-left:8px">📋 Розділ</div><div class="sumval" style="font-size:.76rem">${esc(r.section)}</div></div>`;
     if(r.desc)h+=`<div class="sumrow"><div class="sumkey" style="padding-left:8px">📝 Опис</div><div class="sumval" style="font-size:.76rem">${esc(r.desc)}</div></div>`;
   });
   h+='</div>';
   document.getElementById('ssum').innerHTML=h;
 }
 
-function newDay(){
-  pc=0;userLoc=null;lunchMin=0;lunchShown=false;grossMinsState=0;
-  tomorrowPlan=null;tomorrowDesc='';
-  document.getElementById('plist').innerHTML='';
-  document.getElementById('s2lv').value='17:00';
-  document.getElementById('s2l').value='';
-  clearArrState();
-  setDate();goStep(2);
+
+// ═══ STATISTICS MODULE ═══
+
+function _buildMonthOptions(selId){
+  const sel=document.getElementById(selId);if(!sel)return;
+  sel.innerHTML='';
+  const now=new Date();
+  for(let i=0;i<7;i++){
+    const d=new Date(now.getFullYear(),now.getMonth()-i,1);
+    const val=d.getFullYear()+'-'+(d.getMonth()+1+'').padStart(2,'0');
+    const lbl=MONTHS[d.getMonth()]+' '+d.getFullYear();
+    const o=document.createElement('option');o.value=val;o.textContent=lbl;
+    sel.appendChild(o);
+  }
+}
+
+function openStats(){
+  if(!user){toast('⚠️ Спочатку увійдіть','warn');return;}
+  _buildMonthOptions('statsMonth');
+  document.getElementById('statsOv').classList.add('open');
+  loadMyStats();
+}
+function closeStats(){document.getElementById('statsOv').classList.remove('open');}
+document.getElementById('statsOv').addEventListener('click',e=>{if(e.target===e.currentTarget)closeStats();});
+
+async function loadMyStats(){
+  const sel=document.getElementById('statsMonth');
+  if(!sel||!user)return;
+  const month=sel.value;
+  const cfg=getCfg();
+  const msg=document.getElementById('statsLoadMsg');
+  msg.textContent='⏳ Завантаження...';
+  ['statsSummary','statsLocChart','statsBarChart','statsProjects'].forEach(id=>{
+    document.getElementById(id).innerHTML='';
+  });
+  if(!cfg.url){msg.textContent='⚠️ Sheets не підключено';return;}
+  try{
+    const r=await fetch(cfg.url+'?action=myStats&employee='+encodeURIComponent(user)+'&month='+month+'&tabSheet='+encodeURIComponent(cfg.tab),{cache:'no-store'});
+    const d=await r.json();
+    if(!d.ok)throw new Error(d.error);
+    msg.textContent='';
+    renderMyStats(d.records||[]);
+  }catch(e){msg.textContent='❌ '+e.message;}
+}
+
+function renderMyStats(records){
+  // Групуємо по даті
+  const byDate={};
+  records.forEach(r=>{
+    if(!byDate[r.date])byDate[r.date]={date:r.date,location:r.location,arrival:r.arrival,departure:r.departure,hours:r.hours,projects:[]};
+    if(r.code)byDate[r.date].projects.push({code:r.code,name:r.name,timeSpent:r.timeSpent});
+  });
+  const days=Object.values(byDate).sort((a,b)=>a.date.localeCompare(b.date));
+
+  let totalMins=0,offDays=0,homeDays=0,tripDays=0;
+  days.forEach(d=>{
+    totalMins+=timeToMins(d.hours);
+    if(d.location==='Офіс')offDays++;
+    else if(d.location==='Дома')homeDays++;
+    else if(d.location==='Командировка')tripDays++;
+  });
+
+  // Картки зведення
+  document.getElementById('statsSummary').innerHTML=
+    '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px">'
+    +_statCard('⏱ Всього годин',minsPretty(totalMins),'var(--ach)')
+    +_statCard('📅 Робочих днів',days.length,'var(--ok)')
+    +_statCard('🏢 Офіс',offDays+' дн.','#6366f1')
+    +_statCard('🏠 Дома/Відряд.',(homeDays+tripDays)+' дн.','var(--warn)')
+    +'</div>';
+
+  // Кругова діаграма локацій
+  const pie=[{label:'Офіс',value:offDays,color:'#6366f1'},{label:'Дома',value:homeDays,color:'#10b981'},{label:'Командировка',value:tripDays,color:'#f59e0b'}].filter(s=>s.value>0);
+  document.getElementById('statsLocChart').innerHTML='<div class="adm-sec" style="margin-bottom:0"><div class="adm-sec-t">📍 По локаціях</div>'+_drawPie(pie)+'</div>';
+
+  // Агрегація по проектах
+  const projMap={};
+  records.forEach(r=>{
+    if(!r.code)return;
+    if(!projMap[r.code])projMap[r.code]={code:r.code,name:r.name,mins:0};
+    projMap[r.code].mins+=timeToMins(r.timeSpent);
+  });
+  const projs=Object.values(projMap).sort((a,b)=>b.mins-a.mins);
+
+  // Бар-чарт топ проектів
+  const bars=projs.slice(0,8).map(p=>({label:(p.code+(p.name?' — '+p.name.slice(0,20):'')),value:p.mins,sub:minsPretty(p.mins)}));
+  document.getElementById('statsBarChart').innerHTML='<div class="adm-sec" style="margin-bottom:0"><div class="adm-sec-t">🏗 Топ проектів</div>'+_drawBars(bars)+'</div>';
+
+  // Таблиця проектів
+  if(!projs.length){document.getElementById('statsProjects').innerHTML='<div style="text-align:center;padding:20px;color:var(--tx3);font-size:.83rem">Записів за цей місяць не знайдено</div>';return;}
+  let tbl='<div class="adm-sec"><div class="adm-sec-t">📋 Деталізація по проектах</div><div class="sumgrid">'
+    +'<div class="sumrow" style="background:var(--s3)"><div class="sumkey" style="font-weight:700;color:var(--tx)">Шифр</div><div class="sumval" style="font-weight:700;color:var(--tx)">Назва · Витрачено</div></div>';
+  projs.forEach(p=>{
+    tbl+='<div class="sumrow"><div class="sumkey" style="font-family:monospace;font-size:.78rem">'+esc(p.code)+'</div>'
+      +'<div class="sumval">'+(p.name?'<div style="font-size:.72rem;color:var(--tx2);margin-bottom:2px">'+esc(p.name.slice(0,60))+'</div>':'')
+      +'<span style="color:var(--ach);font-weight:700">'+minsPretty(p.mins)+'</span></div></div>';
+  });
+  tbl+='</div></div>';
+  document.getElementById('statsProjects').innerHTML=tbl;
+}
+
+// ── Admin Monitoring ──────────────────────────────────────────────────────────
+function openMonitoring(){
+  if(user!==ADMIN_USER){toast('⛔ Тільки для адміністратора','err');return;}
+  _buildMonthOptions('monMonth');
+  document.getElementById('monOv').classList.add('open');
+  loadAdminStats();
+}
+function closeMonitoring(){document.getElementById('monOv').classList.remove('open');}
+document.getElementById('monOv').addEventListener('click',e=>{if(e.target===e.currentTarget)closeMonitoring();});
+
+async function loadAdminStats(){
+  const sel=document.getElementById('monMonth');
+  if(!sel)return;
+  const month=sel.value;
+  const cfg=getCfg();
+  const msg=document.getElementById('monLoadMsg');
+  msg.textContent='⏳ Завантаження...';
+  ['monOnline','monProjChart','monLocChart','monSuspicious'].forEach(id=>{document.getElementById(id).innerHTML='';});
+  if(!cfg.url){msg.textContent='⚠️ Sheets не підключено';return;}
+  try{
+    const r=await fetch(cfg.url+'?action=adminStats&month='+month+'&tabSheet='+encodeURIComponent(cfg.tab),{cache:'no-store'});
+    const d=await r.json();
+    if(!d.ok)throw new Error(d.error);
+    msg.textContent='';
+    renderMonitoring(d);
+  }catch(e){msg.textContent='❌ '+e.message;}
+}
+
+function renderMonitoring(d){
+  // Хто в мережі
+  const onlineEl=document.getElementById('monOnline');
+  if(!d.onlineNow||!d.onlineNow.length){
+    onlineEl.innerHTML='<div style="font-size:.8rem;color:var(--tx3);padding:8px 0">Сьогодні ніхто не в мережі або всі вже завершили день</div>';
+  } else {
+    onlineEl.innerHTML=d.onlineNow.map(p=>
+      '<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--bd)">'
+      +'<div style="width:8px;height:8px;border-radius:50%;background:var(--ok);flex-shrink:0;box-shadow:0 0 5px var(--ok)"></div>'
+      +'<div style="flex:1"><b style="font-size:.84rem">'+esc(p.employee)+'</b>'
+      +' <span style="font-size:.72rem;color:var(--tx3)">з '+esc(p.arrival)+'</span>'
+      +' <span style="font-size:.72rem;color:var(--tx2)">· '+esc(p.location)+'</span></div>'
+      +'<div style="font-family:monospace;font-size:.7rem;color:var(--tx3)">'+esc(p.ip)+'</div>'
+      +'</div>'
+    ).join('');
+  }
+
+  // Трудовитрати по проектах (бар-чарт + таблиця)
+  const projs=d.projectStats||[];
+  const bars=projs.slice(0,12).map(p=>({label:p.code+(p.name?' '+p.name.slice(0,18):''),value:p.totalMins,sub:minsPretty(p.totalMins)}));
+  document.getElementById('monProjChart').innerHTML='<div class="adm-sec" style="margin-bottom:0"><div class="adm-sec-t">🏗 Трудовитрати по об\'єктах</div>'+_drawBars(bars)+'</div>';
+
+  // Розподіл по локаціях (з projectStats не витягнути — замість цього показуємо топ-3 співробітники по годинах)
+  const empMap={};
+  (d.projectStats||[]).forEach(p=>{
+    (p.employees||[]).forEach(emp=>{
+      if(!empMap[emp])empMap[emp]=0;
+      empMap[emp]+=p.totalMins;
+    });
+  });
+  const topEmps=Object.entries(empMap).sort((a,b)=>b[1]-a[1]).slice(0,8)
+    .map(([emp,m])=>({label:emp,value:m,sub:minsPretty(m)}));
+  document.getElementById('monLocChart').innerHTML='<div class="adm-sec" style="margin-bottom:0"><div class="adm-sec-t">👥 Навантаження по співробітниках</div>'+_drawBars(topEmps)+'</div>';
+
+  // Підозрілі IP
+  const suspEl=document.getElementById('monSuspicious');
+  const sus=d.suspiciousRecords||[];
+  if(!sus.length){
+    suspEl.innerHTML='<div style="font-size:.8rem;color:var(--ok);padding:8px 0">✅ Підозрілих записів не знайдено</div>';
+  } else {
+    suspEl.innerHTML='<div class="sumgrid">'
+      +'<div class="sumrow" style="background:var(--s3)"><div class="sumkey" style="font-weight:700;color:var(--tx)">Дата · Співробітник</div><div class="sumval" style="font-weight:700;color:var(--tx)">IP · Локація</div></div>'
+      +sus.map(r=>'<div class="sumrow" style="background:rgba(245,158,11,.07)">'
+        +'<div class="sumkey"><div style="font-size:.8rem">'+esc(r.date)+'</div><div style="font-size:.76rem;color:var(--warn)">'+esc(r.employee)+'</div></div>'
+        +'<div class="sumval"><div style="font-family:monospace;font-size:.72rem;color:var(--err)">'+esc(r.ip)+'</div><div style="font-size:.74rem;color:var(--tx2)">'+esc(r.location)+'</div></div>'
+        +'</div>').join('')
+      +'</div>';
+  }
+}
+
+// ── Chart helpers ─────────────────────────────────────────────────────────────
+function _statCard(label,val,color){
+  return '<div style="background:var(--s2);border:1px solid var(--bd);border-radius:8px;padding:12px;text-align:center">'
+    +'<div style="font-size:.64rem;color:var(--tx3);margin-bottom:4px">'+label+'</div>'
+    +'<div style="font-size:1.25rem;font-weight:800;color:'+color+'">'+val+'</div></div>';
+}
+
+function _drawPie(slices){
+  const total=slices.reduce((s,d)=>s+d.value,0);
+  if(!total)return '<div style="font-size:.78rem;color:var(--tx3);padding:10px 0">Немає даних</div>';
+  let a=-Math.PI/2,paths='',legend='';
+  slices.forEach((s,i)=>{
+    if(!s.value)return;
+    const pct=s.value/total,end=a+pct*2*Math.PI;
+    const x1=(60+48*Math.cos(a)).toFixed(1),y1=(60+48*Math.sin(a)).toFixed(1);
+    const x2=(60+48*Math.cos(end)).toFixed(1),y2=(60+48*Math.sin(end)).toFixed(1);
+    paths+=`<path d="M60,60 L${x1},${y1} A48,48 0 ${pct>.5?1:0},1 ${x2},${y2} Z" fill="${s.color}" stroke="#07070f" stroke-width="1.5"/>`;
+    legend+=`<div style="display:flex;align-items:center;gap:5px;font-size:.72rem;margin-bottom:5px"><div style="width:10px;height:10px;border-radius:2px;background:${s.color};flex-shrink:0"></div><span style="color:var(--tx2)">${esc(s.label)}: <b style="color:var(--tx)">${s.value}</b> (${Math.round(pct*100)}%)</span></div>`;
+    a=end;
+  });
+  return `<div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-top:8px"><svg width="120" height="120" viewBox="0 0 120 120">${paths}</svg><div>${legend}</div></div>`;
+}
+
+function _drawBars(items){
+  if(!items.length)return '<div style="font-size:.78rem;color:var(--tx3);padding:10px 0">Немає даних</div>';
+  const max=Math.max(...items.map(x=>x.value),1);
+  return '<div style="margin-top:8px">'+items.map(item=>{
+    const pct=Math.round(item.value/max*100);
+    return '<div style="margin-bottom:9px">'
+      +'<div style="display:flex;justify-content:space-between;font-size:.7rem;color:var(--tx2);margin-bottom:3px">'
+      +'<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:70%">'+esc(item.label)+'</span>'
+      +'<span style="color:var(--ach);font-weight:700;flex-shrink:0;margin-left:6px">'+esc(item.sub||'')+'</span></div>'
+      +'<div style="background:var(--s3);border-radius:3px;height:7px;overflow:hidden">'
+      +'<div style="width:'+pct+'%;height:100%;background:var(--ac);border-radius:3px"></div>'
+      +'</div></div>';
+  }).join('')+'</div>';
 }
 
 // ═══ UTILS ═══
