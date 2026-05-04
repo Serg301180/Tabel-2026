@@ -17,6 +17,7 @@
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%}
 body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--tx);min-height:100vh}
+#appVersion{position:fixed;top:6px;left:8px;font-size:.65rem;color:var(--tx3);letter-spacing:.03em;pointer-events:none;z-index:9999;user-select:none}
 
 /* ── APP ── */
 .app{min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:18px 16px 60px}
@@ -189,6 +190,7 @@ input[type="date"],input[type="time"]{color-scheme:dark}
 </style>
 </head>
 <body>
+<div id="appVersion">v26.05.04</div>
 <div class="app">
 
 <!-- ═══ HEADER ═══ -->
@@ -691,7 +693,7 @@ const BUNDLED_EMPS = %%EMPLOYEES%%;
 const BUNDLED_SECS = %%SECTIONS%%;
 const BUNDLED_OBJS = %%OBJECTS%%;
 const BUNDLED_WTS  = [];
-const MONTHS=['Січень','Лютий','Березень','Квітень','Травень','Червень','Липень','Серпень','Вересень','Жовтень','Листопад','Грудень'];
+const MONTHS=['СІЧЕНЬ','ЛЮТИЙ','БЕРЕЗЕНЬ','КВІТЕНЬ','ТРАВЕНЬ','ЧЕРВЕНЬ','ЛИПЕНЬ','СЕРПЕНЬ','ВЕРЕСЕНЬ','ЖОВТЕНЬ','ЛИСТОПАД','ГРУДЕНЬ'];
 
 let LIVE_EMPS=null, LIVE_OBJS=null, LIVE_SECS=null, LIVE_WTS=null;
 function emps(){return LIVE_EMPS||BUNDLED_EMPS}
@@ -867,7 +869,7 @@ async function submitManualEntry(){
   if(!arr){toast('⚠️ Вкажіть час приходу','err');return;}
   const cfg=getCfg();
   if(!cfg.url){toast('⚠️ Google Sheets не налаштовано','err');return;}
-  const month=new Date(date+'T12:00').toLocaleDateString('uk-UA',{month:'long'});
+  const month=new Date(date+'T12:00').toLocaleDateString('uk-UA',{month:'long'}).toUpperCase();
   const btn=document.getElementById('mrSubmitBtn');
   btn.innerHTML='<span class="spin"></span> Відправляємо...';btn.disabled=true;
   try{
@@ -1345,6 +1347,10 @@ function selectLoc(loc){
   const now=new Date();
   document.getElementById('s2a').value=
     String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0');
+  const _todaySel=_todayStr();
+  const _s2dEl=document.getElementById('s2d');
+  _s2dEl.value=_todaySel;_s2dEl.min=_todaySel;_s2dEl.max=_todaySel;
+  onDate();
   setTimeout(()=>goStep(3),220);
 }
 
@@ -1380,12 +1386,26 @@ async function setDate(){
   } else {
     _d=new Date();
   }
-  document.getElementById('s2d').value=_d.getFullYear()+'-'+String(_d.getMonth()+1).padStart(2,'0')+'-'+String(_d.getDate()).padStart(2,'0');
+  const _todayLocked=_d.getFullYear()+'-'+String(_d.getMonth()+1).padStart(2,'0')+'-'+String(_d.getDate()).padStart(2,'0');
+  const _s2d=document.getElementById('s2d');
+  _s2d.value=_todayLocked;_s2d.min=_todayLocked;_s2d.max=_todayLocked;
   onDate();calcH();
+}
+function _todayStr(){
+  const d=_srvTime?new Date(_srvTime.epoch+(Date.now()-_srvTime.fetchedAt)):new Date();
+  return _localDateStr(d);
 }
 function onDate(){
   const v=document.getElementById('s2d').value;
-  if(v)document.getElementById('s2m').value=MONTHS[new Date(v+'T12:00').getMonth()];
+  if(!v)return;
+  const today=_todayStr();
+  if(v!==today){
+    document.getElementById('s2d').value=today;
+    toast('⚠️ Дата заблокована — можна відмічати лише сьогоднішній день','warn');
+    document.getElementById('s2m').value=MONTHS[new Date(today+'T12:00').getMonth()];
+    return;
+  }
+  document.getElementById('s2m').value=MONTHS[new Date(v+'T12:00').getMonth()];
 }
 
 function minsToStr(m){return(m>0)?Math.floor(m/60)+':'+(m%60+'').padStart(2,'0'):'0:00';}

@@ -20,13 +20,14 @@
  * ══════════════════════════════════════════════
  */
 
-// ─── Telegram конфігурація ───────────────────────────────────────────────────
-const TG_TOKEN   = '8303053237:AAHqd_SSIjM-3l08EKRbyJF7MFAHXPDDPAY';
-const TG_CHAT_ID = '222538505';
+// ─── Конфігурація ────────────────────────────────────────────────────────────
+const TG_TOKEN          = '8303053237:AAHqd_SSIjM-3l08EKRbyJF7MFAHXPDDPAY';
+const TG_CHAT_ID        = '222538505';
 const TAB_SHEET_DEFAULT = 'ТАБЕЛЬ';
+const IP_WHITELIST_SHEET = 'IP_WHITELIST';
 
 
-// ─── doGet — завантаження списків ───────────────────────────────────────────
+// ─── doGet — читання даних ───────────────────────────────────────────────────
 function doGet(e) {
   const output = ContentService.createTextOutput();
   output.setMimeType(ContentService.MimeType.JSON);
@@ -34,11 +35,13 @@ function doGet(e) {
   try {
     const action = (e.parameter && e.parameter.action) || '';
 
+    // ── Ping ──────────────────────────────────────────────────────────────────
     if (action === 'ping' || action === '') {
       output.setContent(JSON.stringify({ ok: true, message: 'Табель API працює' }));
       return output;
     }
 
+    // ── Списки співробітників / об'єктів / розділів / видів робіт ─────────────
     if (action === 'getData') {
       const empSheet = (e.parameter.empSheet || 'СПРАВОЧНИК').toString();
       const empCol   = (e.parameter.empCol   || 'A').toString().toUpperCase();
@@ -51,66 +54,249 @@ function doGet(e) {
 
       const ss = SpreadsheetApp.getActiveSpreadsheet();
 
-      // ── Співробітники ──
-      const esht = ss.getSheetByName(empSheet);
-      let employees = [];
-      if (esht) {
-        const lastRow = esht.getLastRow();
-        if (lastRow >= 2) {
-          employees = esht.getRange(empCol + '2:' + empCol + lastRow).getValues()
-            .flat().map(v => v.toString().trim()).filter(v => v.length > 0);
-        }
-      }
+      const employees = _readCol(ss, empSheet, empCol)
+        .map(v => v.toString().trim()).filter(v => v.length > 0);
 
-      // ── Об'єкти ──
-      const osht = ss.getSheetByName(objSheet);
-      let objects = [];
-      if (osht) {
-        const lastRow = osht.getLastRow();
-        if (lastRow >= 2) {
-          objects = osht.getRange(objCol + '2:' + objCol + lastRow).getValues()
-            .flat().map(v => v.toString().replace(/\n/g, ' ').trim()).filter(v => v.length > 0)
-            .map(raw => {
-              const sepIdx = raw.indexOf(' | ');
-              return sepIdx > 0
-                ? { code: raw.slice(0, sepIdx).trim(), name: raw.slice(sepIdx + 3).trim() }
-                : { code: raw, name: '' };
-            });
-        }
-      }
+      const objects = _readCol(ss, objSheet, objCol)
+        .map(v => v.toString().replace(/\n/g, ' ').trim()).filter(v => v.length > 0)
+        .map(raw => {
+          const sepIdx = raw.indexOf(' | ');
+          return sepIdx > 0
+            ? { code: raw.slice(0, sepIdx).trim(), name: raw.slice(sepIdx + 3).trim() }
+            : { code: raw, name: '' };
+        });
 
-      // ── Розділи ──
-      const ssht = ss.getSheetByName(secSheet);
-      let sections = [];
-      if (ssht) {
-        const lastRow = ssht.getLastRow();
-        if (lastRow >= 2) {
-          sections = ssht.getRange(secCol + '2:' + secCol + lastRow).getValues()
-            .flat().map(v => v.toString().trim()).filter(v => v.length > 0);
-        }
-      }
+      const sections  = _readCol(ss, secSheet, secCol)
+        .map(v => v.toString().trim()).filter(v => v.length > 0);
 
-      // ── Види робіт ──
-      const wtsht = ss.getSheetByName(wtSheet);
-      let worktypes = [];
-      if (wtsht) {
-        const lastRow = wtsht.getLastRow();
-        if (lastRow >= 2) {
-          worktypes = wtsht.getRange(wtCol + '2:' + wtCol + lastRow).getValues()
-            .flat().map(v => v.toString().trim()).filter(v => v.length > 0);
-        }
-      }
+      const worktypes = _readCol(ss, wtSheet, wtCol)
+        .map(v => v.toString().trim()).filter(v => v.length > 0);
 
       output.setContent(JSON.stringify({
-        ok: true,
-        employees, objects, sections, worktypes,
+        ok: true, employees, objects, sections, worktypes,
         meta: {
           empSheet, empCol, empCount: employees.length,
           objSheet, objCol, objCount: objects.length,
           secSheet, secCol, secCount: sections.length,
-          wtSheet, wtCol, wtCount: worktypes.length,
+          wtSheet,  wtCol,  wtCount:  worktypes.length,
           timestamp: new Date().toISOString()
         }
+      }));
+      return output;
+    }
+
+    // ── Серверний час ──────────────────────────────────────────────────────────
+    if (action === 'getServerTime') {
+      const now = new Date();
+      const tz  = Session.getScriptTimeZone();
+      output.setContent(JSON.stringify({
+        ok:    true,
+        iso:   now.toISOString(),
+        date:  Utilities.formatDate(now, tz, 'yyyy-MM-dd'),
+        time:  Utilities.formatDate(now, tz, 'HH:mm'),
+        epoch: now.getTime()
+      }));
+      return output;
+    }
+
+    // ── Перевірка незакритої сесії (прихід без відходу) ───────────────────────
+    if (action === 'checkSession') {
+      const employee     = (e.parameter.employee  || '').toString().trim();
+      const date         = (e.parameter.date      || '').toString().trim();
+      const tabSheetName = (e.parameter.tabSheet  || TAB_SHEET_DEFAULT).toString();
+
+      if (!employee || !date) {
+        output.setContent(JSON.stringify({ ok: true, hasOpenSession: false }));
+        return output;
+      }
+
+      const ss    = SpreadsheetApp.getActiveSpreadsheet();
+      const sheet = ss.getSheetByName(tabSheetName);
+
+      if (!sheet || sheet.getLastRow() < 2) {
+        output.setContent(JSON.stringify({ ok: true, hasOpenSession: false }));
+        return output;
+      }
+
+      const tz        = Session.getScriptTimeZone();
+      const sheetData = sheet.getDataRange().getValues();
+
+      for (let i = 1; i < sheetData.length; i++) {
+        const row     = sheetData[i];
+        const rawDate = row[0];
+        const rowDate = rawDate instanceof Date
+          ? Utilities.formatDate(rawDate, tz, 'yyyy-MM-dd')
+          : (rawDate || '').toString().slice(0, 10);
+        const rowEmp = (row[2] || '').toString().trim();
+        const rowDep = (row[6] || '').toString().trim();
+
+        if (rowDate === date && rowEmp === employee && rowDep === '') {
+          const arrivalIP = (row[3] || '').toString().split(' / ')[0].trim();
+          const rawArr = row[5];
+          const arrivalStr = rawArr instanceof Date
+            ? Utilities.formatDate(rawArr, tz, 'HH:mm')
+            : (rawArr || '').toString().trim();
+          output.setContent(JSON.stringify({
+            ok: true, hasOpenSession: true,
+            date:     date,
+            month:    (row[1] || '').toString(),
+            arrival:  arrivalStr,
+            location: (row[4] || '').toString(),
+            ip:       arrivalIP
+          }));
+          return output;
+        }
+      }
+
+      output.setContent(JSON.stringify({ ok: true, hasOpenSession: false }));
+      return output;
+    }
+
+    // ── Довідник білих IP ──────────────────────────────────────────────────────
+    if (action === 'getWhiteIPs') {
+      const ss    = SpreadsheetApp.getActiveSpreadsheet();
+      const sheet = ss.getSheetByName(IP_WHITELIST_SHEET);
+
+      if (!sheet || sheet.getLastRow() < 2) {
+        output.setContent(JSON.stringify({ ok: true, ips: [] }));
+        return output;
+      }
+
+      const rows = sheet.getRange(2, 1, sheet.getLastRow() - 1, 4).getValues();
+      const ips  = rows
+        .filter(r => r[0])
+        .map(r => ({
+          ip:       r[0].toString().trim(),
+          location: r[1].toString().trim(),
+          employee: r[2].toString().trim() || 'Всі',
+          comment:  r[3].toString().trim()
+        }));
+
+      output.setContent(JSON.stringify({ ok: true, ips }));
+      return output;
+    }
+
+    // ── Статистика користувача ─────────────────────────────────────────────────
+    if (action === 'myStats') {
+      const employee     = (e.parameter.employee || '').toString().trim();
+      const month        = (e.parameter.month    || '').toString().trim(); // YYYY-MM
+      const tabSheetName = (e.parameter.tabSheet || TAB_SHEET_DEFAULT).toString();
+
+      if (!employee || !month) {
+        output.setContent(JSON.stringify({ ok: false, error: 'Потрібні employee та month' }));
+        return output;
+      }
+
+      const ss    = SpreadsheetApp.getActiveSpreadsheet();
+      const sheet = ss.getSheetByName(tabSheetName);
+
+      if (!sheet || sheet.getLastRow() < 2) {
+        output.setContent(JSON.stringify({ ok: true, records: [] }));
+        return output;
+      }
+
+      const tz      = Session.getScriptTimeZone();
+      const allData = sheet.getDataRange().getValues();
+      const records = [];
+
+      for (let i = 1; i < allData.length; i++) {
+        const row     = allData[i];
+        const rawDate = row[0];
+        const rowDate = rawDate instanceof Date
+          ? Utilities.formatDate(rawDate, tz, 'yyyy-MM-dd')
+          : (rawDate || '').toString().slice(0, 10);
+        const rowEmp = (row[2] || '').toString().trim();
+
+        if (!rowDate.startsWith(month) || rowEmp !== employee) continue;
+
+        records.push({
+          date:       rowDate,
+          location:   (row[4]  || '').toString(),
+          arrival:    row[5] instanceof Date ? Utilities.formatDate(row[5], tz, 'HH:mm') : (row[5]||'').toString().trim(),
+          departure:  row[6] instanceof Date ? Utilities.formatDate(row[6], tz, 'HH:mm') : (row[6]||'').toString().trim(),
+          lunchMin:   Number(row[7]) || 0,
+          hoursGross: (row[9]  || '').toString(),
+          hours:      (row[10] || '').toString(),
+          code:       (row[11] || '').toString(),
+          name:       (row[12] || '').toString(),
+          workType:   (row[13] || '').toString(),
+          timeSpent:  (row[14] || '').toString(),
+          section:    (row[15] || '').toString()
+        });
+      }
+
+      output.setContent(JSON.stringify({ ok: true, records }));
+      return output;
+    }
+
+    // ── Адмін-моніторинг ──────────────────────────────────────────────────────
+    if (action === 'adminStats') {
+      const tabSheetName = (e.parameter.tabSheet || TAB_SHEET_DEFAULT).toString();
+      const filterMonth  = (e.parameter.month    || '').toString().trim();
+
+      const ss    = SpreadsheetApp.getActiveSpreadsheet();
+      const sheet = ss.getSheetByName(tabSheetName);
+      const today = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd');
+
+      if (!sheet || sheet.getLastRow() < 2) {
+        output.setContent(JSON.stringify({ ok: true, today, onlineNow: [], projectStats: [], suspiciousRecords: [] }));
+        return output;
+      }
+
+      const tz         = Session.getScriptTimeZone();
+      const allData    = sheet.getDataRange().getValues();
+      const onlineNow  = [];
+      const projectMap = {};
+      const suspicious = [];
+
+      for (let i = 1; i < allData.length; i++) {
+        const row     = allData[i];
+        const rawDate = row[0];
+        const rowDate = rawDate instanceof Date
+          ? Utilities.formatDate(rawDate, tz, 'yyyy-MM-dd')
+          : (rawDate || '').toString().slice(0, 10);
+
+        const emp       = (row[2]  || '').toString().trim();
+        const dep       = row[6] instanceof Date ? Utilities.formatDate(row[6], tz, 'HH:mm') : (row[6]||'').toString().trim();
+        const arrival   = row[5] instanceof Date ? Utilities.formatDate(row[5], tz, 'HH:mm') : (row[5]||'').toString().trim();
+        const location  = (row[4]  || '').toString();
+        const ip        = (row[3]  || '').toString();
+        const code      = (row[11] || '').toString().trim();
+        const name      = (row[12] || '').toString().trim();
+        const timeSpent = (row[14] || '').toString().trim();
+        const flag      = (row[19] || '').toString().trim();
+
+        if (rowDate === today && emp && !dep) {
+          if (!onlineNow.some(x => x.employee === emp)) {
+            onlineNow.push({ employee: emp, arrival, location, ip });
+          }
+        }
+
+        if (code && timeSpent && (!filterMonth || rowDate.startsWith(filterMonth))) {
+          if (!projectMap[code]) {
+            projectMap[code] = { code, name, totalMins: 0, employees: [] };
+          }
+          const parts = timeSpent.split(':');
+          projectMap[code].totalMins += (parseInt(parts[0]) || 0) * 60 + (parseInt(parts[1]) || 0);
+          if (emp && !projectMap[code].employees.includes(emp)) {
+            projectMap[code].employees.push(emp);
+          }
+        }
+
+        if (flag && flag.includes('⚠')) {
+          suspicious.push({ date: rowDate, employee: emp, ip, location, flag, arrival, departure: dep });
+        }
+      }
+
+      const projectStats = Object.values(projectMap)
+        .sort((a, b) => b.totalMins - a.totalMins)
+        .slice(0, 40);
+
+      output.setContent(JSON.stringify({
+        ok: true, today,
+        onlineNow,
+        projectStats,
+        suspiciousRecords: suspicious.slice(0, 60)
       }));
       return output;
     }
@@ -125,23 +311,52 @@ function doGet(e) {
 }
 
 
-// ─── doPost — збереження табелю ─────────────────────────────────────────────
-//
-// type:'arrival' → записує рядок-заглушку з приходом, шле Telegram "прийшов"
-// type:'full'    → знаходить рядок приходу і оновлює його; решта проектів —
-//                  нові рядки. Шле Telegram "пішов"
-//
+// ─── doPost — запис табелю ───────────────────────────────────────────────────
 function doPost(e) {
   const output = ContentService.createTextOutput();
   output.setMimeType(ContentService.MimeType.JSON);
 
   try {
-    const raw = (e.postData && e.postData.contents) ? e.postData.contents : '{}';
+    const raw  = (e.postData && e.postData.contents) ? e.postData.contents : '{}';
     const data = JSON.parse(raw);
     const type = data.type || 'full';
     const tabSheetName = (data.tabSheet || TAB_SHEET_DEFAULT).toString();
 
     const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+    // ── Збереження довідника білих IP ──────────────────────────────────────────
+    if (type === 'saveWhiteIPs') {
+      const ips = data.ips || [];
+      let ipSheet = ss.getSheetByName(IP_WHITELIST_SHEET);
+
+      if (!ipSheet) {
+        ipSheet = ss.insertSheet(IP_WHITELIST_SHEET);
+        ipSheet.appendRow(['IP-адреса', 'Локація', 'Співробітник', 'Коментар']);
+        ipSheet.getRange(1, 1, 1, 4).setBackground('#1a237e').setFontColor('#ffffff').setFontWeight('bold');
+        ipSheet.setFrozenRows(1);
+        ipSheet.setColumnWidth(1, 140);
+        ipSheet.setColumnWidth(2, 110);
+        ipSheet.setColumnWidth(3, 150);
+        ipSheet.setColumnWidth(4, 220);
+      } else if (ipSheet.getLastRow() > 1) {
+        ipSheet.getRange(2, 1, ipSheet.getLastRow() - 1, 4).clearContent();
+      }
+
+      if (ips.length > 0) {
+        const rows = ips.map(entry => [
+          entry.ip       || '',
+          entry.location || '',
+          entry.employee || 'Всі',
+          entry.comment  || ''
+        ]);
+        ipSheet.getRange(2, 1, rows.length, 4).setValues(rows);
+      }
+
+      output.setContent(JSON.stringify({ ok: true, saved: ips.length }));
+      return output;
+    }
+
+    // ── Підготовка листа табелю ────────────────────────────────────────────────
     let sheet = ss.getSheetByName(tabSheetName);
     if (!sheet) {
       sheet = ss.insertSheet(tabSheetName);
@@ -150,20 +365,20 @@ function doPost(e) {
       _addHeaders(sheet);
     }
 
-    // ── ARRIVAL ─────────────────────────────────────────────────────────────
+    // ── ARRIVAL — фіксація приходу ─────────────────────────────────────────────
     if (type === 'arrival') {
       sheet.appendRow([
         data.date     || '',   // A  Дата
         data.month    || '',   // B  Місяць
         data.employee || '',   // C  Співробітник
-        data.ip       || '',   // D  IP-адреса
+        data.ip       || '',   // D  IP-адреса (прихід)
         data.location || '',   // E  Місце роботи
         data.arrival  || '',   // F  Прихід
-        '', '', '', '', '', '', '', '', '', '', '', '', ''   // G–S  порожньо
+        '', '', '', '', '', '', '', '', '', '', '', '', '', ''  // G–T  порожньо
       ]);
 
       const msg = '🟢 *' + _escMd(data.employee) + '* прийшов о *' + data.arrival + '*\n'
-        + '📍 ' + _escMd(data.location) + '   🌐 `' + data.ip + '`\n'
+        + '📍 ' + _escMd(data.location) + '   🌐 *' + data.ip + '*\n'
         + '📅 ' + data.date;
       _sendTelegram(TG_TOKEN, TG_CHAT_ID, msg);
 
@@ -171,7 +386,7 @@ function doPost(e) {
       return output;
     }
 
-    // ── FULL ─────────────────────────────────────────────────────────────────
+    // ── FULL — повний запис (відхід + проекти) ─────────────────────────────────
     if (type === 'full') {
       const rows = data.rows || [];
       if (!rows.length) {
@@ -184,56 +399,69 @@ function doPost(e) {
       // Знайти рядок-заглушку (прихід без відходу) для цього співробітника і дати
       let arrivalRowIdx = -1;
       if (sheet.getLastRow() >= 2) {
-        const tz = Session.getScriptTimeZone();
+        const tz        = Session.getScriptTimeZone();
         const sheetData = sheet.getDataRange().getValues();
         for (let i = 1; i < sheetData.length; i++) {
-          const raw = sheetData[i][0];
-          const rowDate = raw instanceof Date
-            ? Utilities.formatDate(raw, tz, 'yyyy-MM-dd')
-            : (raw || '').toString().slice(0, 10);
-          const rowEmp  = (sheetData[i][2] || '').toString().trim();
-          const rowDep  = (sheetData[i][6] || '').toString().trim();
+          const rawDate = sheetData[i][0];
+          const rowDate = rawDate instanceof Date
+            ? Utilities.formatDate(rawDate, tz, 'yyyy-MM-dd')
+            : (rawDate || '').toString().slice(0, 10);
+          const rowEmp = (sheetData[i][2] || '').toString().trim();
+          const rowDep = (sheetData[i][6] || '').toString().trim();
           if (rowDate === r0.date && rowEmp === r0.employee && rowDep === '') {
-            arrivalRowIdx = i + 1; // 1-indexed
+            arrivalRowIdx = i + 1;
             break;
           }
         }
       }
 
+      const ipWhiteList = _getWhiteIPs(ss);
+
       const makeRow = r => [
-        r.date          || '',   // A  Дата
-        r.month         || '',   // B  Місяць
-        r.employee      || '',   // C  Співробітник
-        r.ip            || '',   // D  IP-адреса
-        r.location      || '',   // E  Місце роботи
-        r.arrival       || '',   // F  Прихід
-        r.departure     || '',   // G  Відхід
-        r.lunchMin      || '',   // H  Обід (хв)
-        r.lunchStr      || '',   // I  Обід (текст)
-        r.hoursGross    || '',   // J  Загальний час
-        r.hours         || '',   // K  Чистий робочий час
-        r.code          || '',   // L  Шифр
-        r.name          || '',   // M  Назва об'єкта
-        r.workType      || '',   // N  Вид робіт
-        r.timeSpent     || '',   // O  Витрачений час
-        r.section       || '',   // P  Розділ
-        r.desc          || '',   // Q  Опис робіт
-        r.tomorrowPlan  || '',   // R  Плани на завтра
-        r.tomorrowDesc  || ''    // S  Причина (завтра)
+        r.date         || '',        // A  Дата
+        r.month        || '',        // B  Місяць
+        r.employee     || '',        // C  Співробітник
+        _mergeIP(r.ip, r.ipDep),     // D  IP (прихід / відхід)
+        r.location     || '',        // E  Місце роботи
+        r.arrival      || '',        // F  Прихід
+        r.departure    || '',        // G  Відхід
+        r.lunchMin     || '',        // H  Обід (хв)
+        r.lunchStr     || '',        // I  Обід (текст)
+        r.hoursGross   || '',        // J  Загальний час
+        r.hours        || '',        // K  Чистий роб. час
+        r.code         || '',        // L  Шифр
+        r.name         || '',        // M  Назва об'єкта
+        r.workType     || '',        // N  Вид робіт
+        r.timeSpent    || '',        // O  Витрачений час
+        r.section      || '',        // P  Розділ
+        r.desc         || '',        // Q  Опис робіт
+        r.tomorrowPlan || '',        // R  Плани на завтра
+        r.tomorrowDesc || '',        // S  Причина (завтра)
+        ''                           // T  Перевірка IP (заповнюється нижче)
       ];
 
       rows.forEach((r, idx) => {
+        let rowIndex;
         if (idx === 0 && arrivalRowIdx > 0) {
-          sheet.getRange(arrivalRowIdx, 1, 1, 19).setValues([makeRow(r)]);
+          sheet.getRange(arrivalRowIdx, 1, 1, 20).setValues([makeRow(r)]);
+          rowIndex = arrivalRowIdx;
         } else {
           sheet.appendRow(makeRow(r));
+          rowIndex = sheet.getLastRow();
         }
 
-        // ── Telegram на кожен рядок ──
+        // Перевірка IP — якщо IP відходу відомий використовуємо його (більш актуальний)
+        const checkIP = (r.ipDep && r.ipDep !== 'невідомо') ? r.ipDep : r.ip;
+        if (_isSuspiciousIP(checkIP, r.location, r.employee, ipWhiteList)) {
+          sheet.getRange(rowIndex, 1, 1, 20).setBackground('#fff59d');
+          sheet.getRange(rowIndex, 20).setValue('⚠ IP не збігається');
+        }
+
+        // Telegram-повідомлення
         let msg = '🔴 *' + _escMd(r.employee) + '* пішов о *' + r.departure + '*\n'
           + '⏱ Відпрацював: *' + r.hours + '*'
           + (r.lunchStr ? ' (обід ' + r.lunchStr + ')' : '') + '\n'
-          + '🏗 `' + _escMd(r.code) + '`'
+          + '🏗 *' + _escMd(r.code) + '*'
           + (r.name ? ' — ' + _escMd(r.name) : '') + '\n';
         if (r.timeSpent) msg += '⏰ На проект: *' + r.timeSpent + '*\n';
         if (r.workType)  msg += '⚒ ' + _escMd(r.workType) + '\n';
@@ -257,37 +485,26 @@ function doPost(e) {
 }
 
 
-// ─── Щоденне зведення о 20:00 (тригер) ─────────────────────────────────────
+// ─── Щоденне зведення о 20:00 (встановити як тригер Time-driven → 8pm-9pm) ──
 function sendDailySummary() {
-  const token   = TG_TOKEN;
-  const chatId  = TG_CHAT_ID;
-  const tabName = TAB_SHEET_DEFAULT;
-
-  if (!token || !chatId) {
-    Logger.log('sendDailySummary: TG_TOKEN або TG_CHAT_ID не заповнено');
-    return;
-  }
-
   const ss    = SpreadsheetApp.getActiveSpreadsheet();
-  const sheet = ss.getSheetByName(tabName);
+  const sheet = ss.getSheetByName(TAB_SHEET_DEFAULT);
   const today = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd');
 
   if (!sheet || sheet.getLastRow() < 2) {
-    _sendTelegram(token, chatId, '📊 Зведення за ' + today + ': немає записів.');
+    _sendTelegram(TG_TOKEN, TG_CHAT_ID, '📊 Зведення за ' + today + ': немає записів.');
     return;
   }
 
-  const data = sheet.getDataRange().getValues();
+  const data   = sheet.getDataRange().getValues();
   const people = {};
 
   for (let i = 1; i < data.length; i++) {
     const row     = data[i];
     const rowDate = (row[0] || '').toString().slice(0, 10);
     if (rowDate !== today) continue;
-
     const emp = (row[2] || '').toString().trim();
     if (!emp) continue;
-
     if (!people[emp]) {
       people[emp] = { arrival: row[5] || '', departure: '', hours: '', location: row[4] || '', projects: [] };
     }
@@ -298,15 +515,14 @@ function sendDailySummary() {
 
   const names = Object.keys(people);
   if (names.length === 0) {
-    _sendTelegram(token, chatId, '📊 Зведення за ' + today + ': ніхто не відмітився.');
+    _sendTelegram(TG_TOKEN, TG_CHAT_ID, '📊 Зведення за ' + today + ': ніхто не відмітився.');
     return;
   }
 
   let msg = '📊 *Зведення за ' + today + '*\n';
   msg += '👥 Відмітилось: ' + names.length + ' осіб\n\n';
-
   names.forEach(emp => {
-    const p = people[emp];
+    const p   = people[emp];
     const dep = p.departure ? p.departure : '(ще не пішов)';
     msg += '👤 *' + _escMd(emp) + '*\n';
     msg += '   🕐 ' + p.arrival + ' → ' + dep;
@@ -317,12 +533,11 @@ function sendDailySummary() {
     }
     msg += '\n';
   });
-
-  _sendTelegram(token, chatId, msg.trim());
+  _sendTelegram(TG_TOKEN, TG_CHAT_ID, msg.trim());
 }
 
 
-// ─── Тест Telegram (запускати вручну з редактора) ────────────────────────────
+// ─── Тест Telegram ───────────────────────────────────────────────────────────
 function testTelegram() {
   _sendTelegram(TG_TOKEN, TG_CHAT_ID, '✅ Тест з Apps Script — працює!');
 }
@@ -330,10 +545,44 @@ function testTelegram() {
 
 // ─── Приватні функції ────────────────────────────────────────────────────────
 
+function _readCol(ss, sheetName, col) {
+  const sht = ss.getSheetByName(sheetName);
+  if (!sht || sht.getLastRow() < 2) return [];
+  return sht.getRange(col + '2:' + col + sht.getLastRow()).getValues().flat();
+}
+
+function _mergeIP(ipArr, ipDep) {
+  const a = (ipArr || '').toString().trim();
+  const d = (ipDep || '').toString().trim();
+  if (!d || d === 'невідомо') return a;
+  return a + ' / ' + d;
+}
+
+function _getWhiteIPs(ss) {
+  const sheet = ss.getSheetByName(IP_WHITELIST_SHEET);
+  if (!sheet || sheet.getLastRow() < 2) return [];
+  return sheet.getRange(2, 1, sheet.getLastRow() - 1, 4).getValues()
+    .filter(r => r[0])
+    .map(r => ({
+      ip:       r[0].toString().trim(),
+      location: r[1].toString().trim(),
+      employee: r[2].toString().trim() || 'Всі'
+    }));
+}
+
+function _isSuspiciousIP(ip, location, employee, whitelist) {
+  if (!whitelist || whitelist.length === 0) return false;
+  const matches = whitelist.filter(e => e.ip === ip);
+  if (matches.length === 0) return true;
+  return !matches.some(e =>
+    e.location === location &&
+    (e.employee === 'Всі' || e.employee === employee)
+  );
+}
+
 function _sendTelegram(token, chatId, text) {
   try {
-    const url = 'https://api.telegram.org/bot' + token + '/sendMessage';
-    const response = UrlFetchApp.fetch(url, {
+    const response = UrlFetchApp.fetch('https://api.telegram.org/bot' + token + '/sendMessage', {
       method: 'post',
       contentType: 'application/json',
       payload: JSON.stringify({ chat_id: chatId, text: text, parse_mode: 'Markdown' }),
@@ -341,8 +590,7 @@ function _sendTelegram(token, chatId, text) {
     });
     const result = JSON.parse(response.getContentText());
     if (!result.ok) {
-      console.error('Telegram send failed [' + result.error_code + ']: ' + result.description
-        + ' | text preview: ' + text.slice(0, 120));
+      console.error('Telegram error [' + result.error_code + ']: ' + result.description);
     }
   } catch (e) {
     console.error('Telegram exception: ' + e.message);
@@ -357,8 +605,8 @@ function _addHeaders(sheet) {
   const HEADERS = [
     'Дата', 'Місяць', 'Співробітник', 'IP-адреса', 'Місце роботи', 'Прихід', 'Відхід',
     'Обід (хв)', 'Обід (текст)', 'Загальний час', 'Чистий роб. час',
-    'Шифр', 'Назва об\'єкта', 'Вид робіт', 'Витрачений час', 'Розділ', 'Опис робіт',
-    'Плани на завтра', 'Причина (завтра)'
+    'Шифр', "Назва об'єкта", 'Вид робіт', 'Витрачений час', 'Розділ', 'Опис робіт',
+    'Плани на завтра', 'Причина (завтра)', 'Перевірка IP'
   ];
   sheet.appendRow(HEADERS);
 
@@ -372,7 +620,7 @@ function _addHeaders(sheet) {
   sheet.setColumnWidth(1,  95);   // A  Дата
   sheet.setColumnWidth(2,  90);   // B  Місяць
   sheet.setColumnWidth(3, 130);   // C  Співробітник
-  sheet.setColumnWidth(4, 110);   // D  IP-адреса
+  sheet.setColumnWidth(4, 200);   // D  IP-адреса (прихід / відхід)
   sheet.setColumnWidth(5, 100);   // E  Місце роботи
   sheet.setColumnWidth(6,  70);   // F  Прихід
   sheet.setColumnWidth(7,  70);   // G  Відхід
@@ -388,4 +636,5 @@ function _addHeaders(sheet) {
   sheet.setColumnWidth(17, 260);  // Q  Опис робіт
   sheet.setColumnWidth(18, 110);  // R  Плани на завтра
   sheet.setColumnWidth(19, 220);  // S  Причина (завтра)
+  sheet.setColumnWidth(20, 150);  // T  Перевірка IP
 }
