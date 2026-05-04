@@ -18,7 +18,7 @@ html = html.replace('%%SECTIONS%%',  json.dumps(sections,  ensure_ascii=False))
 html = html.replace('%%OBJECTS%%',   json.dumps(objects,   ensure_ascii=False))
 
 # Write output
-out = 'Табель_2026.html'
+out = 'index.html'
 with open(out, 'w', encoding='utf-8') as f:
     f.write(html)
 
