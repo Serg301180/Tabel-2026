@@ -17,6 +17,7 @@
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%}
 body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--tx);min-height:100vh}
+#appVersion{position:fixed;top:6px;left:8px;font-size:.65rem;color:var(--tx3);letter-spacing:.03em;pointer-events:none;z-index:9999;user-select:none}
 
 /* ── APP ── */
 .app{min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:18px 16px 60px}
@@ -189,6 +190,7 @@ input[type="date"],input[type="time"]{color-scheme:dark}
 </style>
 </head>
 <body>
+<div id="appVersion">v26.05.04</div>
 <div class="app">
 
 <!-- ═══ HEADER ═══ -->
@@ -458,7 +460,7 @@ input[type="date"],input[type="time"]{color-scheme:dark}
     <div class="succ-sub">Табель за <span id="sd"></span> збережено</div>
     <div id="ssum"></div>
     <div id="homeWorkInfo" style="display:none;background:rgba(16,185,129,.08);border:1.5px solid rgba(16,185,129,.3);border-radius:9px;padding:12px 15px;margin-bottom:10px;text-align:center">
-      <div style="font-size:.75rem;color:var(--tx2);margin-bottom:4px">🏠 Продовження роботи вдома</div>
+      <div style="font-size:.75rem;color:var(--tx2);margin-bottom:4px">🏠 Робота з дому (за потреби)</div>
       <div style="font-size:1.6rem;font-weight:800;color:var(--ok);letter-spacing:2px;font-variant-numeric:tabular-nums" id="homeWorkTime">—</div>
       <div style="font-size:.7rem;color:var(--tx3);margin-top:3px" id="homeWorkCountdown"></div>
     </div>
@@ -691,7 +693,7 @@ const BUNDLED_EMPS = %%EMPLOYEES%%;
 const BUNDLED_SECS = %%SECTIONS%%;
 const BUNDLED_OBJS = %%OBJECTS%%;
 const BUNDLED_WTS  = [];
-const MONTHS=['Січень','Лютий','Березень','Квітень','Травень','Червень','Липень','Серпень','Вересень','Жовтень','Листопад','Грудень'];
+const MONTHS=['СІЧЕНЬ','ЛЮТИЙ','БЕРЕЗЕНЬ','КВІТЕНЬ','ТРАВЕНЬ','ЧЕРВЕНЬ','ЛИПЕНЬ','СЕРПЕНЬ','ВЕРЕСЕНЬ','ЖОВТЕНЬ','ЛИСТОПАД','ГРУДЕНЬ'];
 
 let LIVE_EMPS=null, LIVE_OBJS=null, LIVE_SECS=null, LIVE_WTS=null;
 function emps(){return LIVE_EMPS||BUNDLED_EMPS}
@@ -867,7 +869,7 @@ async function submitManualEntry(){
   if(!arr){toast('⚠️ Вкажіть час приходу','err');return;}
   const cfg=getCfg();
   if(!cfg.url){toast('⚠️ Google Sheets не налаштовано','err');return;}
-  const month=new Date(date+'T12:00').toLocaleDateString('uk-UA',{month:'long'});
+  const month=new Date(date+'T12:00').toLocaleDateString('uk-UA',{month:'long'}).toUpperCase();
   const btn=document.getElementById('mrSubmitBtn');
   btn.innerHTML='<span class="spin"></span> Відправляємо...';btn.disabled=true;
   try{
@@ -1040,12 +1042,12 @@ function startHomeWorkCountdown(departureMins){
     const rem=enableTs-Date.now();
     if(rem<=0){
       if(btn){btn.disabled=false;btn.textContent='🏠 Продовжити роботу вдома · зараз!';}
-      if(cd)cd.textContent='Час розпочати роботу вдома!';
+      if(cd)cd.textContent='✅ Можна розпочати роботу вдома!';
       if(timeEl)timeEl.style.color='var(--ok)';
       if(_homeWorkTimer){clearInterval(_homeWorkTimer);_homeWorkTimer=null;}
     } else {
       const m=Math.ceil(rem/60000);
-      if(cd)cd.textContent='Ще '+(m>=60?Math.floor(m/60)+' год '+(m%60?m%60+' хв':''):m+' хв');
+      if(cd)cd.textContent='Активація сеансу можлива через '+(m>=60?Math.floor(m/60)+' год '+(m%60?m%60+' хв':''):m+' хв')+' (час на дорогу та відпочинок)';
       if(btn)btn.disabled=true;
       if(timeEl)timeEl.style.color='var(--tx2)';
     }
@@ -1177,7 +1179,7 @@ async function doLogin(){
       const d=await r.json();
       if(d.ok&&d.hasOpenSession){
         userLoc=d.location||'';userIP=d.ip||'невідомо';
-        const _rd=d.date||today,_rm=d.month||'',_ra=d.arrival||'';
+        const _rd=d.date||today,_rm=d.month||'',_ra=sanitizeTime(d.arrival||'');
         document.getElementById('s2d').value=_rd;
         document.getElementById('s2m').value=_rm;
         document.getElementById('s2a').value=_ra;
@@ -1345,6 +1347,10 @@ function selectLoc(loc){
   const now=new Date();
   document.getElementById('s2a').value=
     String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0');
+  const _todaySel=_todayStr();
+  const _s2dEl=document.getElementById('s2d');
+  _s2dEl.value=_todaySel;_s2dEl.min=_todaySel;_s2dEl.max=_todaySel;
+  onDate();
   setTimeout(()=>goStep(3),220);
 }
 
@@ -1380,12 +1386,26 @@ async function setDate(){
   } else {
     _d=new Date();
   }
-  document.getElementById('s2d').value=_d.getFullYear()+'-'+String(_d.getMonth()+1).padStart(2,'0')+'-'+String(_d.getDate()).padStart(2,'0');
+  const _todayLocked=_d.getFullYear()+'-'+String(_d.getMonth()+1).padStart(2,'0')+'-'+String(_d.getDate()).padStart(2,'0');
+  const _s2d=document.getElementById('s2d');
+  _s2d.value=_todayLocked;_s2d.min=_todayLocked;_s2d.max=_todayLocked;
   onDate();calcH();
+}
+function _todayStr(){
+  const d=_srvTime?new Date(_srvTime.epoch+(Date.now()-_srvTime.fetchedAt)):new Date();
+  return _localDateStr(d);
 }
 function onDate(){
   const v=document.getElementById('s2d').value;
-  if(v)document.getElementById('s2m').value=MONTHS[new Date(v+'T12:00').getMonth()];
+  if(!v)return;
+  const today=_todayStr();
+  if(v!==today){
+    document.getElementById('s2d').value=today;
+    toast('⚠️ Дата заблокована — можна відмічати лише сьогоднішній день','warn');
+    document.getElementById('s2m').value=MONTHS[new Date(today+'T12:00').getMonth()];
+    return;
+  }
+  document.getElementById('s2m').value=MONTHS[new Date(v+'T12:00').getMonth()];
 }
 
 function minsToStr(m){return(m>0)?Math.floor(m/60)+':'+(m%60+'').padStart(2,'0'):'0:00';}
@@ -1621,6 +1641,13 @@ function acSel(i,el){
 }
 
 // ═══ ARRIVAL STATE (localStorage) ═══
+function sanitizeTime(t){
+  if(!t)return '';
+  const hm=String(t).match(/(\d{1,2}):(\d{2})/);
+  if(hm)return hm[1].padStart(2,'0')+':'+hm[2];
+  try{const d=new Date(t);if(!isNaN(d.getTime()))return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');}catch(e){}
+  return t;
+}
 function _localDateStr(d){
   const dt=d||new Date();
   return dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0');
@@ -1631,6 +1658,7 @@ function getArrState(){
     const obj=JSON.parse(v);
     const today=_localDateStr(new Date());
     if(obj.user!==user||obj.date!==today)return null;
+    obj.arrival=sanitizeTime(obj.arrival);
     return obj;
   }catch(e){return null;}
 }
