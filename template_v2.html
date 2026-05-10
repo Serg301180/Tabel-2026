@@ -178,6 +178,25 @@ input[type="date"],input[type="time"]{color-scheme:dark}
 .spin{width:16px;height:16px;border:2px solid rgba(255,255,255,.2);border-top-color:#fff;border-radius:50%;animation:sp .6s linear infinite;display:inline-block;flex-shrink:0}
 @keyframes sp{to{transform:rotate(360deg)}}
 
+/* ── USER MENU / VIOLATION BADGES ── */
+.um-btn{width:100%;background:var(--s2);border:1px solid var(--bd);border-radius:9px;padding:11px 14px;cursor:pointer;font-size:.84rem;color:var(--tx2);display:flex;align-items:center;gap:9px;transition:all .2s;font-family:inherit;text-align:left}
+.um-btn:hover{border-color:var(--ac);color:var(--tx)}
+.um-btn.danger{color:var(--err)}.um-btn.danger:hover{border-color:var(--err)}
+.vbadge{display:inline-flex;align-items:center;gap:4px;border-radius:6px;padding:3px 8px;font-size:.72rem;font-weight:700}
+.vbadge.ok{background:rgba(16,185,129,.15);color:var(--ok);border:1px solid rgba(16,185,129,.3)}
+.vbadge.warn{background:rgba(245,158,11,.15);color:var(--warn);border:1px solid rgba(245,158,11,.3)}
+.vbadge.err{background:rgba(239,68,68,.15);color:var(--err);border:1px solid rgba(239,68,68,.3)}
+.viol-row{display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--bd);font-size:.82rem}
+.viol-row:last-child{border-bottom:none}
+/* ── INSTRUCTION MODAL ── */
+.instr-h2{font-size:.82rem;font-weight:700;color:var(--ach);text-transform:uppercase;letter-spacing:.5px;margin:16px 0 6px}
+.instr-p{font-size:.78rem;color:var(--tx2);line-height:1.7;margin-bottom:6px}
+.instr-table{width:100%;border-collapse:collapse;font-size:.76rem;margin-bottom:8px}
+.instr-table th{background:var(--s3);color:var(--tx2);padding:6px 10px;text-align:left;font-weight:600;border-bottom:1px solid var(--bd)}
+.instr-table td{padding:6px 10px;border-bottom:1px solid var(--bd);color:var(--tx2);vertical-align:top}
+.instr-table tr:last-child td{border-bottom:none}
+.instr-warn{background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.25);border-radius:7px;padding:9px 13px;font-size:.76rem;color:var(--err);line-height:1.6;margin:6px 0}
+.instr-note{background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.25);border-radius:7px;padding:9px 13px;font-size:.76rem;color:var(--warn);line-height:1.6;margin:6px 0}
 @media(max-width:520px){
   .card{padding:18px 14px}
   .g2{grid-template-columns:1fr}
@@ -190,7 +209,7 @@ input[type="date"],input[type="time"]{color-scheme:dark}
 </style>
 </head>
 <body>
-<div id="appVersion">v26.05.04</div>
+<div id="appVersion">v26.05.10</div>
 <div class="app">
 
 <!-- ═══ HEADER ═══ -->
@@ -204,8 +223,8 @@ input[type="date"],input[type="time"]{color-scheme:dark}
   </div>
   <div class="hdr-r">
     <button class="btn-cfg" id="statsBtn" style="display:none" onclick="openStats()">📊 Статистика</button>
-    <button class="btn-cfg" onclick="openAdmin()">
-      <div class="cdot" id="cdot"></div>⚙ Налаштування
+    <button class="btn-cfg" onclick="openUserMenu()">
+      <div class="cdot" id="cdot"></div>⚙ Меню
     </button>
     <div class="ubadge" id="ubadge" onclick="logout()">
       <div class="av" id="uav"></div>
@@ -227,6 +246,9 @@ input[type="date"],input[type="time"]{color-scheme:dark}
     <div class="ps" id="ps7"><div class="psdot">✓</div><div class="pslbl">Готово</div></div>
   </div>
 </div>
+
+<!-- ═══ MISSED DAY BANNER ═══ -->
+<div id="missedDayBanner" style="display:none;width:100%;max-width:680px;background:rgba(239,68,68,.13);border:1.5px solid var(--err);border-radius:9px;padding:11px 16px;margin-bottom:14px;font-size:.82rem;font-weight:700;color:var(--err);text-align:center;letter-spacing:.02em"></div>
 
 <!-- ═══ STEP 1 — LOGIN ═══ -->
 <div class="step active" id="step1">
@@ -605,6 +627,15 @@ input[type="date"],input[type="time"]{color-scheme:dark}
     </div>
   </div>
 
+  <!-- Запити на внесення -->
+  <div class="adm-sec">
+    <div class="adm-sec-t" style="display:flex;align-items:center;justify-content:space-between">
+      📋 Запити на внесення пропущених днів
+      <button class="btn btn-s" style="font-size:.74rem;padding:4px 10px" onclick="loadAdminRequests()">↻ Оновити</button>
+    </div>
+    <div id="reqList" style="margin-top:8px;font-size:.78rem;color:var(--tx3)">Натисніть «Оновити» щоб завантажити запити.</div>
+  </div>
+
   <div class="adm-acts">
     <button class="btn btn-ok" onclick="saveAndLoad()"><span id="loadTxt">🔄 Зберегти та завантажити</span></button>
     <button class="btn btn-p" onclick="closeAdmin()">✓ Закрити</button>
@@ -634,6 +665,178 @@ input[type="date"],input[type="time"]{color-scheme:dark}
 </div>
 
 <div class="toast" id="toast"></div>
+
+<!-- ═══ USER MENU MODAL ═══ -->
+<div class="adm-ov" id="userMenuOv">
+<div class="adm-box" style="max-width:460px">
+  <div class="adm-title">👤 <span id="umName"></span></div>
+
+  <div class="adm-sec" style="margin-bottom:12px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+      <div class="adm-sec-t" style="margin:0">📊 Порушення</div>
+      <select id="umMonth" onchange="loadUmViolations()" style="background:var(--inp);border:1px solid var(--bd);border-radius:6px;color:var(--tx);padding:4px 8px;font-size:.75rem;font-family:inherit"></select>
+    </div>
+    <div id="umViolContent" style="font-size:.78rem;color:var(--tx3)">⏳ Завантаження...</div>
+  </div>
+
+  <!-- Схвалені запити (якщо є) -->
+  <div id="umApprovedBox" style="display:none;margin-bottom:12px">
+    <div class="adm-sec" style="border-color:rgba(16,185,129,.4);background:rgba(16,185,129,.05)">
+      <div class="adm-sec-t" style="color:var(--ok)">✅ Схвалені запити</div>
+      <div id="umApprovedList"></div>
+    </div>
+  </div>
+
+  <div style="display:flex;flex-direction:column;gap:8px;margin-top:4px">
+    <button class="um-btn" onclick="closeUserMenu();openMissedDayForm()">📋 Внести пропущений день</button>
+    <button class="um-btn" onclick="openInstruction()">📖 Інструкція</button>
+    <button class="um-btn" id="umAdminBtn" style="display:none" onclick="closeUserMenu();openAdminSettings()">⚙ Налаштування адміністратора</button>
+    <button class="um-btn danger" onclick="closeUserMenu();logout()">🚪 Вийти</button>
+  </div>
+</div>
+</div>
+
+<!-- ═══ UNCLOSED DAY BLOCKING MODAL ═══ -->
+<div id="unclosedOv" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:970;align-items:center;justify-content:center;padding:20px">
+<div style="background:var(--s1);border:2px solid var(--warn);border-radius:14px;width:100%;max-width:420px;padding:28px 22px;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,.8)">
+  <div style="font-size:2.4rem;margin-bottom:8px">⚠️</div>
+  <div style="font-size:1rem;font-weight:700;color:var(--warn);margin-bottom:6px">У вас є незакритий день</div>
+  <div id="unclosedInfo" style="background:var(--s2);border-radius:8px;padding:12px 14px;margin:12px 0;font-size:.82rem;color:var(--tx2);line-height:1.9;text-align:left"></div>
+  <div style="font-size:.75rem;color:var(--tx3);margin-bottom:16px;line-height:1.5">Для продовження необхідно закрити цей день.<br>Запис буде позначено як <b style="color:var(--warn)">пізнє внесення</b>.<br>Потрібен OTP-код підтвердження від адміністратора.</div>
+
+  <!-- Стан 1: кнопка запиту коду -->
+  <div id="otpState1">
+    <button class="btn btn-p" style="width:100%" onclick="requestOTP()">🔑 Запросити код підтвердження</button>
+    <div id="otpReqMsg" style="margin-top:10px;font-size:.75rem;min-height:20px"></div>
+  </div>
+
+  <!-- Стан 2: введення коду (прихований до запиту) -->
+  <div id="otpState2" style="display:none">
+    <div style="font-size:.78rem;color:var(--ok);margin-bottom:10px">✅ Код надіслано адміністратору в Telegram</div>
+    <div class="f" style="text-align:left">
+      <label>Введіть 6-значний код підтвердження</label>
+      <input id="otpCodeInput" type="text" inputmode="numeric" maxlength="6" placeholder="000000"
+        style="letter-spacing:.35em;font-size:1.1rem;text-align:center"
+        oninput="this.value=this.value.replace(/\D/g,'')">
+    </div>
+    <div style="display:flex;gap:10px;margin-top:4px">
+      <button class="btn btn-s" style="flex:1" onclick="resetOtpState()">↩ Назад</button>
+      <button class="btn btn-p" style="flex:2" onclick="verifyOTP()">✅ Підтвердити та закрити день</button>
+    </div>
+    <div id="otpVerifyMsg" style="margin-top:10px;font-size:.75rem;min-height:20px"></div>
+  </div>
+</div>
+</div>
+
+<!-- ═══ INSTRUCTION MODAL ═══ -->
+<div class="adm-ov" id="instrOv">
+<div class="adm-box" style="max-width:640px;max-height:88vh;overflow-y:auto">
+  <div class="adm-title" style="position:sticky;top:0;background:var(--s1);padding-bottom:10px;z-index:1">📖 Інструкція по веденню табеля</div>
+
+  <div class="instr-h2">1. Загальні положення</div>
+  <div class="instr-p">Електронний табель — обов'язковий інструмент обліку робочого часу. Заповнення є частиною трудових обов'язків і прирівнюється до підпису в паперовому журналі.</div>
+
+  <div class="instr-h2">2. Режим роботи</div>
+  <div class="instr-p">• Тривалість: <b style="color:var(--tx)">8 годин на день</b>, 5 робочих днів на тиждень (пн–пт)<br>
+  • Якщо відпрацьовано <b style="color:var(--tx)">більше 7 годин</b> — обід обов'язковий, не менше <b style="color:var(--tx)">30 хвилин</b><br>
+  • Максимальна тривалість робочого дня — <b style="color:var(--tx)">14 годин</b><br>
+  • Обідня перерва не входить до оплачуваного часу і віднімається автоматично</div>
+
+  <div class="instr-h2">3. Місце роботи</div>
+  <div class="instr-p">При відмітці приходу обирається одне з: 🏢 Офіс / 🏠 Дома / 🚗 Командировка.<br>
+  Система фіксує IP-адресу в момент відмітки.</div>
+  <div class="instr-note">🏠 <b>Продовження роботи вдома після офісу</b> — дозволено лише якщо з моменту виходу з офісу минуло не менше <b>1,5 години</b>. Оформлюється як окремий запис з місцем «Дома».</div>
+
+  <div class="instr-h2">4. Порядок заповнення</div>
+  <div class="instr-p">
+  <b style="color:var(--tx)">Відмітка приходу</b> — в момент фактичного початку роботи. Після відправки змінити неможливо.<br>
+  <b style="color:var(--tx)">Відмітка відходу</b> — перед завершенням роботи. Обов'язково заповнити проекти та плани на завтра.<br>
+  <b style="color:var(--tx)">Терміни</b> — і прихід, і відхід вносяться в той самий робочий день. Запит на пропущений день — не пізніше наступного робочого дня.</div>
+  <div class="instr-note">Сума годин по всіх проектах повинна відповідати чистому робочому часу. Система перевіряє це автоматично.</div>
+
+  <div class="instr-h2">5. Що робити якщо забули</div>
+  <div class="instr-p"><b style="color:var(--tx)">Не закрили день</b> — при наступному вході система покаже попередження. Без закриття попереднього дня перейти до нового запису неможливо.</div>
+  <div class="instr-p"><b style="color:var(--tx)">Повністю пропустили день</b> — Меню (⚙) → «Внести пропущений день» → заповніть форму → надішліть запит адміністратору. Після схвалення зможете внести дані.</div>
+  <div class="instr-warn">Самовільне внесення без запиту — неможливе. Факт подачі запиту не скасовує порушення.</div>
+
+  <div class="instr-h2">6. Порушення та відповідальність</div>
+  <table class="instr-table">
+    <tr><th>Кількість порушень на місяць</th><th>Наслідок</th></tr>
+    <tr><td>1–2 порушення</td><td>Усне попередження, фіксується в системі</td></tr>
+    <tr><td>3 порушення і більше</td><td>Штраф <b style="color:var(--err)">200 грн × кількість порушень</b></td></tr>
+    <tr><td>3+ місяці підряд</td><td>Розгляд питання керівництвом</td></tr>
+  </table>
+  <div class="instr-p">Штраф нараховується до заробітної плати на підставі даних системи.</div>
+  <div class="instr-note">Поважні причини (хвороба, форс-мажор) — письмове звернення до керівника протягом 3 робочих днів.</div>
+
+  <div class="instr-h2">7. Що заборонено</div>
+  <div class="instr-warn">
+  ❌ Вносити час приходу/відходу заздалегідь або заднім числом без дозволу адміністратора<br>
+  ❌ Передавати логін і пароль іншим особам<br>
+  ❌ Вносити недостовірні дані про місце роботи або витрачений час<br>
+  ❌ Залишати день незакритим навмисно
+  </div>
+
+  <div class="instr-h2">8. Технічні проблеми</div>
+  <div class="instr-p">Якщо система не працює — повідомте адміністратора <b>одразу</b> зі скріншотом помилки. Підтверджений технічний збій не вважається порушенням.</div>
+
+  <div class="btn-row" style="margin-top:14px;position:sticky;bottom:0;background:var(--s1);padding-top:10px">
+    <button class="btn btn-p" id="instrAckBtn" style="display:none" onclick="_instrAck()">✓ Зрозумів, продовжити</button>
+    <button class="btn" onclick="document.getElementById('instrOv').classList.remove('open');_instrPendingCb=null">✕ Закрити</button>
+  </div>
+</div>
+</div>
+
+<!-- ═══ MISSED DAY FORM MODAL ═══ -->
+<div class="adm-ov" id="missedDayOv">
+<div class="adm-box" style="max-width:460px">
+  <div class="adm-title">📋 Запит на внесення пропущеного дня</div>
+  <div class="adm-sub">Після підтвердження адміністратором ви зможете заповнити дані за пропущений день. Факт запиту фіксується як порушення.</div>
+  <div class="adm-sec">
+    <div class="f">
+      <label>📅 Дата пропущеного дня</label>
+      <select id="missedDateSel" style="width:100%;background:var(--inp);border:1px solid var(--bd);border-radius:7px;color:var(--tx);padding:9px 12px;font-size:.87rem;font-family:inherit"></select>
+    </div>
+    <div class="f" style="margin:0">
+      <label>📝 Причина (обов'язково)</label>
+      <textarea id="missedReason" rows="3" placeholder="Вкажіть причину чому не внесли запис своєчасно..." style="width:100%;background:var(--inp);border:1px solid var(--bd);border-radius:7px;color:var(--tx);padding:9px 12px;font-size:.87rem;font-family:inherit;resize:vertical"></textarea>
+    </div>
+  </div>
+  <div class="adm-acts">
+    <button class="btn btn-ok" onclick="submitMissedDay()">📤 Надіслати запит</button>
+    <button class="btn btn-s" onclick="closeMissedDayForm()">Скасувати</button>
+  </div>
+</div>
+</div>
+
+<!-- ═══ FILL MISSED DAY MODAL ═══ -->
+<div class="adm-ov" id="fillMissedOv">
+<div class="adm-box" style="max-width:480px">
+  <div class="adm-title">✅ Заповнення пропущеного дня</div>
+  <div class="adm-sub">Запит схвалено адміністратором. Заповніть дані за пропущений день.</div>
+  <div class="adm-sec">
+    <div class="f"><label>📅 Дата</label><input type="text" id="fmDate" readonly style="color:var(--tx2)"></div>
+    <div class="g2">
+      <div class="f" style="margin:0"><label>📍 Місце роботи</label>
+        <select id="fmLoc" style="background:var(--inp);border:1px solid var(--bd);border-radius:7px;color:var(--tx);padding:9px 12px;font-size:.87rem;font-family:inherit;width:100%">
+          <option value="Офіс">🏢 Офіс</option>
+          <option value="Дома">🏠 Дома</option>
+          <option value="Командировка">🚗 Командировка</option>
+        </select>
+      </div>
+      <div class="f" style="margin:0"><label>🕐 Прихід</label><input type="time" id="fmArr" style="width:100%;background:var(--inp);border:1px solid var(--bd);border-radius:7px;color:var(--tx);padding:9px 12px;font-size:.87rem;font-family:inherit"></div>
+    </div>
+    <div class="f"><label>🕑 Відхід</label><input type="time" id="fmDep" style="width:100%;background:var(--inp);border:1px solid var(--bd);border-radius:7px;color:var(--tx);padding:9px 12px;font-size:.87rem;font-family:inherit"></div>
+    <div class="f"><label>🏗 Проект (шифр або назва)</label><input type="text" id="fmCode" placeholder="напр. 2603" style="width:100%;background:var(--inp);border:1px solid var(--bd);border-radius:7px;color:var(--tx);padding:9px 12px;font-size:.87rem;font-family:inherit"></div>
+    <div class="f" style="margin:0"><label>📝 Опис робіт</label><textarea id="fmDesc" rows="3" placeholder="Що виконувалось..." style="width:100%;background:var(--inp);border:1px solid var(--bd);border-radius:7px;color:var(--tx);padding:9px 12px;font-size:.87rem;font-family:inherit;resize:vertical"></textarea></div>
+  </div>
+  <div style="font-size:.72rem;color:var(--tx3);margin-bottom:12px" id="fmReqId" data-id=""></div>
+  <div class="adm-acts">
+    <button class="btn btn-ok" onclick="submitFillMissed()">📤 Відправити</button>
+    <button class="btn btn-s" onclick="document.getElementById('fillMissedOv').classList.remove('open')">Скасувати</button>
+  </div>
+</div>
+</div>
 
 <!-- ═══ STATS OVERLAY ═══ -->
 <div class="adm-ov" id="statsOv">
@@ -703,13 +906,17 @@ function wts(){return LIVE_WTS||BUNDLED_WTS}
 
 // ═══ CONFIG ═══
 const K={url:'cfg_url',tab:'cfg_tab',es:'cfg_es',ec:'cfg_ec',os:'cfg_os',oc:'cfg_oc',sync:'cfg_sync',ce:'cfg_ce',co:'cfg_co',cs:'cfg_cs',secS:'cfg_secS',secC:'cfg_secC',wtS:'cfg_wtS',wtC:'cfg_wtC',cw:'cfg_cw'};
-const DEFAULT_URL='https://script.google.com/macros/s/AKfycbxpGWfa6jkgu6S_bEVIJV_l4bHHvxac-uYkIgvNVSRDQ2EPnwiJ1dK6Y90OypLnpnnq7w/exec';
+const DEFAULT_URL='https://script.google.com/macros/s/AKfycbz_28BQahyoRTOeqkDUVPCGXXJJyrgpvfNfZaQfjnn0dBFyBA8UApnsiQfAMJFGQ055Ng/exec';
 function getCfg(){return{url:ls(K.url)||DEFAULT_URL,tab:ls(K.tab)||'ТАБЕЛЬ',es:ls(K.es)||'СПРАВОЧНИК',ec:ls(K.ec)||'A',os:ls(K.os)||'СПРАВОЧНИК',oc:ls(K.oc)||'C',secS:ls(K.secS)||'СПРАВОЧНИК',secC:ls(K.secC)||'B',wtS:ls(K.wtS)||'СПРАВОЧНИК',wtC:ls(K.wtC)||'D'}}
 
 // ═══ STATE ═══
 let user=null, userLoc=null, lunchMin=0, lunchShown=false, pc=0, grossMinsState=0;
 let userIP='невідомо', userIPDep='невідомо', tomorrowPlan=null, tomorrowDesc='';
 let _srvTime=null; // {epoch, fetchedAt} — кеш серверного часу
+let _prevSessionData=null; // дані незакритого попереднього дня
+let _isLateEntry=false;    // поточний сабміт — пізнє внесення
+let _missedDayMode=false;  // режим заповнення пропущеного дня
+let _missedDayReqId=null;  // ID запиту на пропущений день
 // Live timer freeze timestamps (epoch ms; 0 = not frozen)
 let _liveTimerFrozenArr=0, _liveTimerFrozenDep=0;
 let _homeWorkMode=false;
@@ -769,8 +976,31 @@ document.addEventListener('DOMContentLoaded', async ()=>{
       document.getElementById('s2a').value=_sa.arrival;
       toast('⏩ Прихід '+_sa.arrival+' вже зафіксовано. Вкажіть час відходу.','ok');
       goStep(4);
-    }else{
-      goStep(2);
+    } else {
+      // Перевіряємо незакритий попередній день (захист від обходу через F5)
+      const _prevStored=sessionStorage.getItem('tabel_prev');
+      if(_prevStored){
+        try{
+          const _pd=JSON.parse(_prevStored);
+          _prevSessionData=_pd;_isLateEntry=true;
+          showUnclosedModal(_pd);
+        }catch(e){sessionStorage.removeItem('tabel_prev');goStep(2);}
+      } else {
+        const _cfg2=getCfg();
+        if(_cfg2.url){
+          try{
+            const _td2=_srvTime?new Date(_srvTime.epoch+(Date.now()-_srvTime.fetchedAt)):new Date();
+            const _today2=_td2.getFullYear()+'-'+String(_td2.getMonth()+1).padStart(2,'0')+'-'+String(_td2.getDate()).padStart(2,'0');
+            const _r2=await fetch(_cfg2.url+'?action=checkPrevSession&employee='+encodeURIComponent(sv)+'&today='+encodeURIComponent(_today2)+'&tabSheet='+encodeURIComponent(_cfg2.tab),{cache:'no-store'});
+            const _d2=await _r2.json();
+            if(_d2.ok&&_d2.hasOpenSession){
+              _prevSessionData=_d2;_isLateEntry=true;
+              sessionStorage.setItem('tabel_prev',JSON.stringify(_d2));
+              showUnclosedModal(_d2);
+            } else {goStep(2);}
+          }catch(e){goStep(2);}
+        } else {goStep(2);}
+      }
     }
   }
 
@@ -804,28 +1034,7 @@ async function loadFromSheets(showMsg=true){
 }
 
 // ═══ ADMIN ═══
-function openAdmin(){
-  if(!user){toast('⚠️ Спочатку увійдіть в систему','warn');return;}
-  if(user!==ADMIN_USER){toast('⛔ Налаштування доступні тільки адміністратору','err');return;}
-  const c=getCfg();
-  document.getElementById('cfgUrl').value=c.url;
-  document.getElementById('cfgTabSheet').value=c.tab;
-  document.getElementById('cfgES').value=c.es;
-  document.getElementById('cfgEC').value=c.ec.toUpperCase();
-  document.getElementById('cfgOS').value=c.os;
-  document.getElementById('cfgOC').value=c.oc.toUpperCase();
-  document.getElementById('cfgSecS').value=c.secS;
-  document.getElementById('cfgSecC').value=c.secC.toUpperCase();
-  document.getElementById('cfgWtS').value=c.wtS;
-  document.getElementById('cfgWtC').value=c.wtC.toUpperCase();
-  updAdmStatus();
-  // Заповнюємо ручний запис
-  const mrEmp=document.getElementById('mrEmp');
-  mrEmp.innerHTML='<option value="">— Виберіть —</option>';
-  emps().forEach(e=>{const o=document.createElement('option');o.value=e;o.textContent=e;mrEmp.appendChild(o);});
-  document.getElementById('mrDate').value=_localDateStr(new Date());
-  document.getElementById('admOv').classList.add('open');
-}
+function openAdmin(){openAdminSettings();}  // зворотна сумісність
 function closeAdmin(){document.getElementById('admOv').classList.remove('open');}
 async function saveAndLoad(){
   ls_s(K.url,document.getElementById('cfgUrl').value.trim());
@@ -1131,7 +1340,7 @@ function secSel(i,el){
   document.getElementById('secl_'+i).classList.remove('open');
 }
 document.getElementById('helpOv').addEventListener('click',e=>{if(e.target===e.currentTarget)document.getElementById('helpOv').classList.remove('open');});
-document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeAdmin();closeStats();closeMonitoring();document.getElementById('helpOv').classList.remove('open');}});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeAdmin();closeStats();closeMonitoring();closeUserMenu();closeMissedDayForm();document.getElementById('helpOv').classList.remove('open');document.getElementById('instrOv').classList.remove('open');}});
 
 // ═══ PASSWORDS ═══
 const DEFAULT_PWDS={'Любченко С.':'30+11+80++'};
@@ -1169,9 +1378,9 @@ async function doLogin(){
   if(cfg.url){
     const btn=document.querySelector('#step1 .btn-p');
     btn.innerHTML='<span class="spin"></span> Перевіряємо...';btn.disabled=true;
+    const _td=_srvTime?new Date(_srvTime.epoch+(Date.now()-_srvTime.fetchedAt)):new Date();
+    const today=_td.getFullYear()+'-'+String(_td.getMonth()+1).padStart(2,'0')+'-'+String(_td.getDate()).padStart(2,'0');
     try{
-      const _td=_srvTime?new Date(_srvTime.epoch+(Date.now()-_srvTime.fetchedAt)):new Date();
-      const today=_td.getFullYear()+'-'+String(_td.getMonth()+1).padStart(2,'0')+'-'+String(_td.getDate()).padStart(2,'0');
       const r=await fetch(cfg.url+'?action=checkSession'
         +'&employee='+encodeURIComponent(n)
         +'&date='+today
@@ -1190,6 +1399,22 @@ async function doLogin(){
         return;
       }
     }catch(err){console.warn('checkSession error:',err);}
+
+    // Пріоритет 3: перевірка незакритих попередніх днів
+    try{
+      const r2=await fetch(cfg.url+'?action=checkPrevSession'
+        +'&employee='+encodeURIComponent(n)
+        +'&today='+encodeURIComponent(today)
+        +'&tabSheet='+encodeURIComponent(cfg.tab),{cache:'no-store'});
+      const d2=await r2.json();
+      if(d2.ok&&d2.hasOpenSession){
+        _prevSessionData=d2;_isLateEntry=true;
+        sessionStorage.setItem('tabel_prev',JSON.stringify(d2));
+        btn.innerHTML='Увійти →';btn.disabled=false;
+        showUnclosedModal(d2);
+        return;
+      }
+    }catch(err2){console.warn('checkPrevSession error:',err2);}
     btn.innerHTML='Увійти →';btn.disabled=false;
   }
 
@@ -1198,9 +1423,12 @@ async function doLogin(){
 }
 function logout(){
   if(!confirm('Вийти?'))return;
-  user=null;userLoc=null;_homeWorkMode=false;
+  user=null;userLoc=null;_homeWorkMode=false;_prevSessionData=null;_isLateEntry=false;
+  _missedDayMode=false;_missedDayReqId=null;
+  document.getElementById('missedDayBanner').style.display='none';
   try{localStorage.removeItem('tabel_hm');}catch(e){}
   sessionStorage.removeItem('tabel_u');
+  sessionStorage.removeItem('tabel_prev');
   document.getElementById('s1p').value='';
   document.getElementById('ubadge').classList.remove('show');
   document.getElementById('statsBtn').style.display='none';
@@ -1347,9 +1575,13 @@ function selectLoc(loc){
   const now=new Date();
   document.getElementById('s2a').value=
     String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0');
-  const _todaySel=_todayStr();
-  const _s2dEl=document.getElementById('s2d');
-  _s2dEl.value=_todaySel;_s2dEl.min=_todaySel;_s2dEl.max=_todaySel;
+  if(!_missedDayMode){
+    // Звичайний режим: фіксуємо дату до сьогодні
+    const _todaySel=_todayStr();
+    const _s2dEl=document.getElementById('s2d');
+    _s2dEl.value=_todaySel;_s2dEl.min=_todaySel;_s2dEl.max=_todaySel;
+  }
+  // В missed day режимі дата вже встановлена в openFillMissed, не чіпаємо
   onDate();
   setTimeout(()=>goStep(3),220);
 }
@@ -1398,6 +1630,11 @@ function _todayStr(){
 function onDate(){
   const v=document.getElementById('s2d').value;
   if(!v)return;
+  // В режимі пропущеного дня — дата фіксована, тільки оновлюємо місяць
+  if(_missedDayMode){
+    document.getElementById('s2m').value=MONTHS[new Date(v+'T12:00').getMonth()];
+    return;
+  }
   const today=_todayStr();
   if(v!==today){
     document.getElementById('s2d').value=today;
@@ -1423,8 +1660,11 @@ function calcH(){
 function afterTime(){
   const l=document.getElementById('s2lv').value;
   if(!l){toast('⚠️ Вкажіть час відходу','err');return;}
-  {const _nm=nowFromServer()??( new Date().getHours()*60+new Date().getMinutes() ),_dm=timeToMins(l),_adm=(user===ADMIN_USER);
-   if(_dm>_nm){if(_adm)toast('⚠️ [ТЕСТ] Час у майбутньому — адмін може продовжити','warn');else{toast('⚠️ Час відходу не може бути у майбутньому','err');return;}}}
+  if(!_missedDayMode && !_isLateEntry){
+    // Валідація часу тільки для поточного дня (не для пізнього внесення і пропущених днів)
+    const _nm=nowFromServer()??( new Date().getHours()*60+new Date().getMinutes() ),_dm=timeToMins(l),_adm=(user===ADMIN_USER);
+    if(_dm>_nm){if(_adm)toast('⚠️ [ТЕСТ] Час у майбутньому — адмін може продовжити','warn');else{toast('⚠️ Час відходу не може бути у майбутньому','err');return;}}
+  }
   if(grossMinsState<=0){toast('⚠️ Час відходу має бути пізніше приходу','err');return;}
   if(grossMinsState<120){toast('⚠️ Мінімальний робочий день — 2 години','err');return;}
   showConfirm('Ваш час відходу',l,'',()=>{
@@ -1676,6 +1916,15 @@ async function sendArrival(){
   const month=document.getElementById('s2m').value;
   if(!date){toast('⚠️ Вкажіть дату','err');return;}
   if(!arr){toast('⚠️ Вкажіть час приходу','err');return;}
+
+  // Режим пропущеного дня: пропускаємо валідацію часу і GAS POST приходу
+  if(_missedDayMode){
+    saveArrState(date,month,arr);
+    toast('✅ Прихід '+arr+' зафіксовано (пропущений день)','ok');
+    goStep(4);
+    return;
+  }
+
   {const _nm=nowFromServer()??( new Date().getHours()*60+new Date().getMinutes() ),_am=timeToMins(arr),_adm=(user===ADMIN_USER);
    if(_am>_nm){if(_adm)toast('⚠️ [ТЕСТ] Час у майбутньому — адмін може продовжити','warn');else{toast('⚠️ Час приходу не може бути у майбутньому','err');return;}}
    else if(_am<_nm-120){if(_adm)toast('⚠️ [ТЕСТ] Прихід >2 год тому — адмін може продовжити','warn');else{toast('⚠️ Час приходу не може бути раніше ніж на 2 год від поточного часу','err');return;}}}
@@ -1702,10 +1951,11 @@ async function sendArrival(){
 // ═══ PREP DEPARTURE STEP ═══
 async function prepDepartureStep(){
   await fetchIPDep();
-  const arr=getArrState();
+  const arr=_prevSessionData||getArrState();
   const panel=document.getElementById('arrInfoPanel');
   if(arr){
-    panel.innerHTML=`✅ <b>Прихід зафіксовано</b><br>🕐 ${arr.arrival} &nbsp;·&nbsp; 📍 ${arr.location} &nbsp;·&nbsp; 🌐 <span style="font-family:monospace;font-size:.76rem">${arr.ip}</span>`;
+    const lateTag=_isLateEntry?'&nbsp;<span style="background:rgba(245,158,11,.15);color:var(--warn);border-radius:4px;padding:1px 6px;font-size:.7rem;font-weight:700">ПІЗНЄ ВНЕСЕННЯ</span>':'';
+    panel.innerHTML=`✅ <b>Прихід зафіксовано</b>${lateTag}<br>🕐 ${arr.arrival} &nbsp;·&nbsp; 📍 ${arr.location} &nbsp;·&nbsp; 🌐 <span style="font-family:monospace;font-size:.76rem">${arr.ip}</span>`;
   } else {
     const a=document.getElementById('s2a').value||'—';
     panel.innerHTML=`✅ <b>Прихід:</b> ${a} &nbsp;·&nbsp; 📍 ${userLoc||'—'}`;
@@ -1770,17 +2020,30 @@ async function doFinalSubmit(){
   btn.innerHTML='<span class="spin"></span> Відправляємо...';btn.disabled=true;
   const cfg2=getCfg();
   const url=cfg2.url;
+  const isMissed=_missedDayMode;
+  const missedReqId=_missedDayReqId;
   if(url){
     try{
-      await fetch(url,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain'},
-        body:JSON.stringify({type:'full',rows,tabSheet:cfg2.tab})});
-      toast('✅ Відправлено до Google Sheets!','ok');
-    }catch(e){toast('💾 Збережено локально. Помилка з\'єднання.','warn');console.error(e);}
+      if(isMissed){
+        const payload={type:'missedDayFull',rows,tabSheet:cfg2.tab,requestId:missedReqId};
+        console.log('[missedDayFull] sending rows:',rows.length,'date:',rows[0]?.date,'emp:',rows[0]?.employee);
+        await fetch(url,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain'},
+          body:JSON.stringify(payload)});
+        toast('✅ Пропущений день збережено!','ok');
+      }else{
+        await fetch(url,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain'},
+          body:JSON.stringify({type:'full',rows,tabSheet:cfg2.tab,isLate:_isLateEntry||false})});
+        toast('✅ Відправлено до Google Sheets!','ok');
+      }
+    }catch(e){toast('💾 Збережено локально. Помилка з\'єднання: '+e.message,'warn');console.error('[doFinalSubmit]',e);}
   }else{
     toast('💾 Збережено локально. Google Sheets не налаштовано.','warn');
   }
   btn.innerHTML='📤 Відправити';btn.disabled=false;
   const depTime=document.getElementById('s2l').value;
+  _prevSessionData=null;_isLateEntry=false;
+  _missedDayMode=false;_missedDayReqId=null;
+  document.getElementById('missedDayBanner').style.display='none';
   const wasHomeMode=_homeWorkMode;
   _homeWorkMode=false;
   try{localStorage.removeItem('tabel_hm');}catch(e){}
@@ -1884,9 +2147,23 @@ function renderMyStats(records){
     else if(d.location==='Командировка')tripDays++;
   });
 
+  // Рахуємо порушення
+  const violSet=new Set();
+  records.forEach(r=>{if(r.violation&&r.violation.trim())violSet.add(r.date);});
+  const violCount=violSet.size;
+  const penalty=violCount>=3?violCount*200:0;
+  const violHtml='<div class="adm-sec" style="margin-bottom:12px;'+(violCount>=3?'border-color:rgba(239,68,68,.4);background:rgba(239,68,68,.04)':violCount>=1?'border-color:rgba(245,158,11,.4)':'')+'">'
+    +'<div class="adm-sec-t" style="margin-bottom:8px">⚠️ Дисципліна</div>'
+    +'<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">'
+    +'<div style="font-size:.82rem;color:var(--tx2)">Порушень за місяць: <b style="font-size:1rem;color:'+(violCount===0?'var(--ok)':violCount<3?'var(--warn)':'var(--err)')+'">'+violCount+'</b></div>'
+    +(violCount===0?'<span class="vbadge ok">✅ Без порушень</span>':violCount<3?'<span class="vbadge warn">⚠️ До штрафу ще '+(3-violCount)+'</span>':'<span class="vbadge err">🔴 Штраф: −'+penalty+' грн</span>')
+    +'</div>'
+    +(violCount>0?'<div style="margin-top:8px">'+[...violSet].sort().map(d=>'<div class="viol-row"><span style="color:var(--tx3)">'+d+'</span><span style="color:var(--warn);font-size:.74rem">порушення</span></div>').join('')+'</div>':'')
+    +'</div>';
   // Картки зведення
   document.getElementById('statsSummary').innerHTML=
-    '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px">'
+    violHtml
+    +'<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px">'
     +_statCard('⏱ Всього годин',minsPretty(totalMins),'var(--ach)')
     +_statCard('📅 Робочих днів',days.length,'var(--ok)')
     +_statCard('🏢 Офіс',offDays+' дн.','#6366f1')
@@ -2048,6 +2325,293 @@ function toast(msg,type){
   const el=document.getElementById('toast');el.textContent=msg;
   el.className='toast show'+(type?' '+type:'');
   clearTimeout(_tt);_tt=setTimeout(()=>el.classList.remove('show'),3200);
+}
+
+// ═══ USER MENU ═══
+function openUserMenu(){
+  if(!user){toast('⚠️ Спочатку увійдіть в систему','warn');return;}
+  document.getElementById('umName').textContent=user;
+  document.getElementById('umAdminBtn').style.display=(user===ADMIN_USER)?'flex':'none';
+  _buildMonthOptions('umMonth');
+  document.getElementById('userMenuOv').classList.add('open');
+  loadUmViolations();
+  loadUmApproved();
+}
+function closeUserMenu(){document.getElementById('userMenuOv').classList.remove('open');}
+document.getElementById('userMenuOv').addEventListener('click',e=>{if(e.target===e.currentTarget)closeUserMenu();});
+
+async function loadUmViolations(){
+  const sel=document.getElementById('umMonth');
+  if(!sel||!user)return;
+  const month=sel.value;
+  const cfg=getCfg();
+  const box=document.getElementById('umViolContent');
+  box.textContent='⏳ Завантаження...';
+  if(!cfg.url){box.textContent='⚠️ Google Sheets не підключено';return;}
+  try{
+    const r=await fetch(cfg.url+'?action=myStats&employee='+encodeURIComponent(user)+'&month='+month+'&tabSheet='+encodeURIComponent(cfg.tab),{cache:'no-store'});
+    const d=await r.json();
+    if(!d.ok)throw new Error(d.error);
+    const records=d.records||[];
+    const violSet=new Set();
+    records.forEach(r=>{if(r.violation&&r.violation.trim())violSet.add(r.date);});
+    const cnt=violSet.size;
+    const penalty=cnt>=3?cnt*200:0;
+    const daysWorked=new Set(records.map(r=>r.date)).size;
+    if(cnt===0){
+      box.innerHTML='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px"><span style="color:var(--tx2)">Відпрацьовано: <b>'+daysWorked+' дн.</b></span><span class="vbadge ok">✅ Без порушень</span></div>';
+    } else if(cnt<3){
+      box.innerHTML='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px"><span style="color:var(--tx2)">Відпрацьовано: <b>'+daysWorked+' дн.</b></span><span class="vbadge warn">⚠️ '+cnt+' пор.</span></div>'
+        +'<div style="font-size:.74rem;color:var(--tx3)">До штрафу: ще '+(3-cnt)+' порушення</div>';
+    } else {
+      box.innerHTML='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px"><span style="color:var(--tx2)">Відпрацьовано: <b>'+daysWorked+' дн.</b></span><span class="vbadge err">🔴 '+cnt+' пор.</span></div>'
+        +'<div style="font-size:.84rem;color:var(--err);font-weight:700;margin-top:4px">Штраф: −'+penalty+' грн</div>'
+        +'<div style="margin-top:8px">'+[...violSet].sort().map(d=>'<div class="viol-row"><span style="color:var(--tx3);font-size:.75rem">'+d+'</span><span style="color:var(--err);font-size:.72rem">порушення</span></div>').join('')+'</div>';
+    }
+  }catch(e){box.textContent='❌ '+e.message;}
+}
+
+async function loadUmApproved(){
+  const cfg=getCfg();
+  if(!cfg.url||!user)return;
+  try{
+    const r=await fetch(cfg.url+'?action=getRequests&employee='+encodeURIComponent(user),{cache:'no-store'});
+    const d=await r.json();
+    if(!d.ok)return;
+    const approved=(d.requests||[]).filter(r=>r.status==='approved');
+    const box=document.getElementById('umApprovedBox');
+    const list=document.getElementById('umApprovedList');
+    if(!approved.length){box.style.display='none';return;}
+    box.style.display='block';
+    list.innerHTML=approved.map(req=>
+      '<div style="display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--bd)">'
+      +'<span style="font-size:.8rem;color:var(--tx2)">📅 '+esc(req.missedDate)+'</span>'
+      +'<button class="btn btn-ok" style="font-size:.74rem;padding:4px 10px" onclick="openFillMissed(\''+esc(req.id)+'\',\''+esc(req.missedDate)+'\')">Заповнити →</button>'
+      +'</div>'
+    ).join('');
+  }catch(e){}
+}
+
+// ═══ UNCLOSED PREVIOUS DAY + OTP ═══
+function showUnclosedModal(session){
+  _instrGateOpen(()=>_doShowUnclosedModal(session));
+}
+function _doShowUnclosedModal(session){
+  const info=document.getElementById('unclosedInfo');
+  info.innerHTML='📅 <b>Дата:</b> '+esc(session.date)+'<br>'
+    +'🕐 <b>Прихід:</b> '+esc(session.arrival)+'<br>'
+    +'📍 <b>Місце:</b> '+esc(session.location);
+  resetOtpState();
+  document.getElementById('unclosedOv').style.display='flex';
+}
+function resetOtpState(){
+  document.getElementById('otpState1').style.display='block';
+  document.getElementById('otpState2').style.display='none';
+  document.getElementById('otpReqMsg').textContent='';
+  document.getElementById('otpVerifyMsg').textContent='';
+  document.getElementById('otpCodeInput').value='';
+}
+async function requestOTP(){
+  const s=_prevSessionData;if(!s)return;
+  const cfg=getCfg();
+  if(!cfg.url){document.getElementById('otpReqMsg').innerHTML='<span style="color:var(--err)">⚠️ Google Sheets не налаштовано</span>';return;}
+  const btn=document.querySelector('#otpState1 .btn');
+  btn.disabled=true;btn.innerHTML='⏳ Надсилання...';
+  document.getElementById('otpReqMsg').textContent='';
+  try{
+    await fetch(cfg.url,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain'},
+      body:JSON.stringify({type:'requestOTP',employee:s.employee||user,date:s.date,arrival:s.arrival,location:s.location})});
+    document.getElementById('otpState1').style.display='none';
+    document.getElementById('otpState2').style.display='block';
+  }catch(e){
+    document.getElementById('otpReqMsg').innerHTML='<span style="color:var(--err)">❌ '+esc(e.message)+'</span>';
+    btn.disabled=false;btn.innerHTML='🔑 Запросити код підтвердження';
+  }
+}
+async function verifyOTP(){
+  const s=_prevSessionData;if(!s)return;
+  const code=document.getElementById('otpCodeInput').value.trim();
+  if(code.length!==6){document.getElementById('otpVerifyMsg').innerHTML='<span style="color:var(--err)">⚠️ Введіть 6-значний код</span>';return;}
+  const cfg=getCfg();
+  if(!cfg.url){document.getElementById('otpVerifyMsg').innerHTML='<span style="color:var(--err)">⚠️ Google Sheets не налаштовано</span>';return;}
+  const btn=document.querySelector('#otpState2 .btn-p');
+  btn.disabled=true;btn.innerHTML='⏳ Перевірка...';
+  document.getElementById('otpVerifyMsg').textContent='';
+  try{
+    const r=await fetch(cfg.url+'?action=verifyOTP&employee='+encodeURIComponent(s.employee||user)+'&date='+encodeURIComponent(s.date)+'&code='+encodeURIComponent(code),{cache:'no-store'});
+    const d=await r.json();
+    if(d.ok && d.valid){
+      closePrevDay();
+    }else{
+      document.getElementById('otpVerifyMsg').innerHTML='<span style="color:var(--err)">❌ '+(d.error||'Невірний або прострочений код')+'</span>';
+      btn.disabled=false;btn.innerHTML='✅ Підтвердити та закрити день';
+    }
+  }catch(e){
+    document.getElementById('otpVerifyMsg').innerHTML='<span style="color:var(--err)">❌ '+esc(e.message)+'</span>';
+    btn.disabled=false;btn.innerHTML='✅ Підтвердити та закрити день';
+  }
+}
+function closePrevDay(){
+  const s=_prevSessionData;if(!s)return;
+  sessionStorage.removeItem('tabel_prev');
+  document.getElementById('unclosedOv').style.display='none';
+  userLoc=s.location;userIP=s.ip;
+  document.getElementById('s2d').value=s.date;
+  document.getElementById('s2m').value=s.month;
+  document.getElementById('s2a').value=s.arrival;
+  toast('📝 Закриваєте день '+s.date+' (пізнє внесення)','warn');
+  goStep(4);
+}
+
+// ═══ INSTRUCTION ═══
+let _instrPendingCb=null;
+function openInstruction(){
+  _instrPendingCb=null;
+  document.getElementById('instrAckBtn').style.display='none';
+  document.getElementById('instrOv').classList.add('open');
+}
+function _instrGateOpen(cb){
+  if(localStorage.getItem('instr_ack')){cb();return;}
+  _instrPendingCb=cb;
+  document.getElementById('instrAckBtn').style.display='';
+  document.getElementById('instrOv').classList.add('open');
+}
+function _instrAck(){
+  localStorage.setItem('instr_ack','1');
+  document.getElementById('instrAckBtn').style.display='none';
+  document.getElementById('instrOv').classList.remove('open');
+  if(_instrPendingCb){const f=_instrPendingCb;_instrPendingCb=null;f();}
+}
+document.getElementById('instrOv').addEventListener('click',e=>{if(e.target===e.currentTarget){document.getElementById('instrOv').classList.remove('open');_instrPendingCb=null;}});
+
+// ═══ MISSED DAY REQUEST ═══
+function openMissedDayForm(){
+  if(!user){toast('⚠️ Спочатку увійдіть','warn');return;}
+  _instrGateOpen(_doOpenMissedDayForm);
+}
+function _doOpenMissedDayForm(){
+  const sel=document.getElementById('missedDateSel');
+  sel.innerHTML='';
+  const today=_todayStr();
+  for(let i=1;i<=7;i++){
+    const d=new Date();d.setDate(d.getDate()-i);
+    const v=_localDateStr(d);
+    const lbl=d.toLocaleDateString('uk-UA',{day:'numeric',month:'long',weekday:'short'});
+    const o=document.createElement('option');o.value=v;o.textContent=lbl;
+    sel.appendChild(o);
+  }
+  document.getElementById('missedReason').value='';
+  document.getElementById('missedDayOv').classList.add('open');
+}
+function closeMissedDayForm(){document.getElementById('missedDayOv').classList.remove('open');}
+document.getElementById('missedDayOv').addEventListener('click',e=>{if(e.target===e.currentTarget)closeMissedDayForm();});
+
+async function submitMissedDay(){
+  const date=document.getElementById('missedDateSel').value;
+  const reason=document.getElementById('missedReason').value.trim();
+  if(!reason){toast('⚠️ Вкажіть причину','err');document.getElementById('missedReason').focus();return;}
+  const cfg=getCfg();
+  if(!cfg.url){toast('⚠️ Google Sheets не налаштовано','err');return;}
+  try{
+    await fetch(cfg.url,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain'},
+      body:JSON.stringify({type:'requestMissedDay',employee:user,missedDate:date,reason})});
+    closeMissedDayForm();
+    toast('✅ Запит надіслано адміністратору','ok');
+  }catch(e){toast('❌ '+e.message,'err');}
+}
+
+// ═══ FILL APPROVED MISSED DAY — запускає повний wizard ═══
+function openFillMissed(reqId, date){
+  // Дата може прийти як рядок з Sheets (напр. "Tue May 05 2026...")
+  let dateStr=date;
+  if(date&&date.length>10){
+    const d=new Date(date);
+    if(!isNaN(d))dateStr=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  }
+  const month=new Date(dateStr+'T12:00').toLocaleDateString('uk-UA',{month:'long'}).toUpperCase();
+  _missedDayMode=true;
+  _missedDayReqId=reqId;
+  // Знімаємо обмеження min/max які ставить setDate(), інакше браузер ігнорує past-дату
+  const s2dEl=document.getElementById('s2d');
+  s2dEl.removeAttribute('min');s2dEl.removeAttribute('max');
+  s2dEl.value=dateStr;
+  document.getElementById('s2m').value=month;
+  const banner=document.getElementById('missedDayBanner');
+  banner.style.display='block';
+  banner.innerHTML='📅 РЕЖИМ ЗАПОВНЕННЯ ПРОПУЩЕНОГО ДНЯ — <b>'+dateStr+'</b>';
+  closeUserMenu();
+  toast('📅 Заповнюєте пропущений день: '+dateStr,'warn');
+  goStep(2);
+}
+
+// ═══ ADMIN SETTINGS (відокремлено від userMenu) ═══
+function openAdminSettings(){
+  if(user!==ADMIN_USER){toast('⛔ Тільки для адміністратора','err');return;}
+  const c=getCfg();
+  document.getElementById('cfgUrl').value=c.url;
+  document.getElementById('cfgTabSheet').value=c.tab;
+  document.getElementById('cfgES').value=c.es;
+  document.getElementById('cfgEC').value=c.ec.toUpperCase();
+  document.getElementById('cfgOS').value=c.os;
+  document.getElementById('cfgOC').value=c.oc.toUpperCase();
+  document.getElementById('cfgSecS').value=c.secS;
+  document.getElementById('cfgSecC').value=c.secC.toUpperCase();
+  document.getElementById('cfgWtS').value=c.wtS;
+  document.getElementById('cfgWtC').value=c.wtC.toUpperCase();
+  updAdmStatus();
+  const mrEmp=document.getElementById('mrEmp');
+  mrEmp.innerHTML='<option value="">— Виберіть —</option>';
+  emps().forEach(e=>{const o=document.createElement('option');o.value=e;o.textContent=e;mrEmp.appendChild(o);});
+  document.getElementById('mrDate').value=_localDateStr(new Date());
+  document.getElementById('admOv').classList.add('open');
+}
+
+// ═══ ADMIN REQUESTS ═══
+async function loadAdminRequests(){
+  const cfg=getCfg();
+  const el=document.getElementById('reqList');
+  el.innerHTML='<span style="color:var(--tx3)">⏳ Завантаження...</span>';
+  if(!cfg.url){el.innerHTML='<span style="color:var(--tx3)">⚠️ Google Sheets не підключено</span>';return;}
+  try{
+    const r=await fetch(cfg.url+'?action=getRequests',{cache:'no-store'});
+    const d=await r.json();
+    if(!d.ok)throw new Error(d.error);
+    const reqs=(d.requests||[]).filter(r=>r.status==='pending');
+    if(!reqs.length){el.innerHTML='<span style="color:var(--ok);font-size:.8rem">✅ Нових запитів немає</span>';return;}
+    el.innerHTML=reqs.map(req=>
+      '<div style="background:var(--s3);border-radius:8px;padding:10px 12px;margin-bottom:8px">'
+      +'<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:6px">'
+      +'<div><div style="font-size:.82rem;font-weight:600;color:var(--tx)">'+esc(req.employee)+'</div>'
+      +'<div style="font-size:.74rem;color:var(--tx3)">📅 '+esc(req.missedDate)+' &nbsp;·&nbsp; Запит: '+esc(req.requestDate)+'</div>'
+      +'<div style="font-size:.75rem;color:var(--tx2);margin-top:3px">📝 '+esc(req.reason)+'</div></div>'
+      +'</div>'
+      +'<div style="display:flex;gap:8px">'
+      +'<button class="btn btn-ok" style="font-size:.76rem;padding:5px 12px" onclick="adminApproveReq(\''+esc(req.id)+'\',this)">✅ Схвалити</button>'
+      +'<button class="btn btn-s" style="font-size:.76rem;padding:5px 12px;color:var(--err)" onclick="adminRejectReq(\''+esc(req.id)+'\',this)">❌ Відхилити</button>'
+      +'</div></div>'
+    ).join('');
+  }catch(e){el.innerHTML='<span style="color:var(--err)">❌ '+esc(e.message)+'</span>';}
+}
+
+async function adminApproveReq(id,btn){
+  const cfg=getCfg();if(!cfg.url)return;
+  btn.innerHTML='<span class="spin"></span>';btn.disabled=true;
+  try{
+    await fetch(cfg.url,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain'},
+      body:JSON.stringify({type:'approveRequest',id,tabSheet:cfg.tab})});
+    toast('✅ Запит схвалено','ok');
+    loadAdminRequests();
+  }catch(e){toast('❌ '+e.message,'err');btn.innerHTML='✅ Схвалити';btn.disabled=false;}
+}
+async function adminRejectReq(id,btn){
+  const cfg=getCfg();if(!cfg.url)return;
+  btn.innerHTML='<span class="spin"></span>';btn.disabled=true;
+  try{
+    await fetch(cfg.url,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain'},
+      body:JSON.stringify({type:'rejectRequest',id,tabSheet:cfg.tab})});
+    toast('❌ Запит відхилено','warn');
+    loadAdminRequests();
+  }catch(e){toast('❌ '+e.message,'err');btn.innerHTML='❌ Відхилити';btn.disabled=false;}
 }
 </script>
 </body>
