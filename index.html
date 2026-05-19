@@ -1931,10 +1931,40 @@ async function sendArrival(){
   const dateLabel=new Date(date+'T12:00').toLocaleDateString('uk-UA',{day:'numeric',month:'long'});
   showConfirm('Ваш час приходу',arr,dateLabel+' · '+userLoc,async()=>{
     _liveTimerFrozenArr=0;
-    saveArrState(date,month,arr);
     const btn=document.getElementById('arrBtn');
-    btn.innerHTML='<span class="spin"></span> Відправляємо...';btn.disabled=true;
+    btn.innerHTML='<span class="spin"></span> Перевіряємо...';btn.disabled=true;
     const cfg=getCfg();
+
+    // Серверна перевірка дубля перед відправкою
+    if(cfg.url){
+      try{
+        const chk=await fetch(cfg.url+'?action=checkSession&employee='+encodeURIComponent(user)+'&date='+encodeURIComponent(date)+'&tabSheet='+encodeURIComponent(cfg.tab||''));
+        const chkData=await chk.json();
+        if(chkData.dayComplete && !_homeWorkMode){
+          // День вже закрито (відхід є) — блокуємо повторний прихід
+          // Виключення: режим "продовжити вдома" (_homeWorkMode) — дозволяємо другий запис
+          btn.innerHTML='✅ Відмітити прихід →';btn.disabled=false;
+          toast('⚠️ Ваш день '+date+' вже закрито (прихід '+chkData.arrival+' → відхід '+chkData.departure+'). Повторний запис неможливий.','err');
+          return;
+        }
+        if(chkData.hasOpenSession){
+          // Прихід вже є, але відходу немає — відновлюємо з серверних даних
+          userLoc=chkData.location||userLoc;userIP=chkData.ip||userIP;
+          saveArrState(chkData.date||date, chkData.month||month, chkData.arrival||arr);
+          document.getElementById('s2d').value=chkData.date||date;
+          document.getElementById('s2m').value=chkData.month||month;
+          document.getElementById('s2a').value=chkData.arrival||arr;
+          btn.innerHTML='✅ Відмітити прихід →';btn.disabled=false;
+          toast('ℹ️ Прихід '+chkData.arrival+' вже зафіксовано. Переходимо до відходу.','warn');
+          goStep(4);
+          return;
+        }
+      }catch(e){console.warn('checkSession error:',e);}
+    }
+
+    // Немає дубля — відправляємо прихід
+    saveArrState(date,month,arr);
+    btn.innerHTML='<span class="spin"></span> Відправляємо...';
     if(cfg.url){
       try{
         await fetch(cfg.url,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain'},
