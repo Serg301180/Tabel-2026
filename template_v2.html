@@ -956,6 +956,18 @@ body.upd-on .toast{bottom:70px}
     <div class="adm-sec-t">📋 Об'єкти — години по співробітниках</div>
     <div id="monProjTable"></div>
   </div>
+  <!-- Записи з об'єктами, яких немає в реєстрі -->
+  <div class="adm-sec" style="border-color:rgba(245,158,11,.4)">
+    <div class="adm-sec-t" style="color:var(--warn)">⚠️ Записи поза реєстром</div>
+    <div style="font-size:.72rem;color:var(--tx3);margin-bottom:10px;line-height:1.5">Об'єкти, яких немає в реєстрі: введені вручну або їхній шифр у реєстрі змінився. Позначте записи, виберіть правильний об'єкт і натисніть «Замінити» — оновляться всі рядки табеля цього співробітника з цим текстом.</div>
+    <div id="monOffBar" style="display:none;gap:6px;flex-wrap:wrap;margin-bottom:10px">
+      <input id="monOffObj" list="objDL" placeholder="Почніть вводити шифр або назву з реєстру…" autocomplete="off"
+        style="flex:1;min-width:200px;background:var(--inp);border:1px solid var(--bd);border-radius:7px;color:var(--tx);padding:7px 10px;font-size:.8rem;font-family:inherit">
+      <button class="btn btn-p" style="padding:7px 14px;font-size:.8rem" id="monOffBtn" onclick="remapOffSelected()">Замінити вибрані</button>
+    </div>
+    <div id="monOffReg"></div>
+  </div>
+  <datalist id="objDL"></datalist>
   <!-- IP-контроль -->
   <div class="adm-sec">
     <div class="adm-sec-t">⚠️ IP-контроль (підозрілі записи)</div>
@@ -978,12 +990,14 @@ const WHATS_NEW={
     ['📊','Години за місяць і норма, дні в офісі / вдома / у відрядженні, години по кожному об\'єкту — за місяць і за весь час.'],
     ['💾','«✅ Відправлено» з\'являється, лише коли таблиця підтвердила запис. Немає інтернету — дані збережуться на телефоні й дошлються самі. <b>Відкрийте табель на цьому ж телефоні</b>, коли з\'явиться зв\'язок.'],
     ['🟡','Незакритий день більше не блокує роботу: зверху жовта смуга, закрити його можна з кодом адміністратора. Не закрито 3 дні — порушення.'],
+    ['📌','<b>Об\'єкт вибирайте зі списку</b>, що випадає (натисніть на варіант). Якщо об\'єкта немає — натисніть «Об\'єкта немає в списку?» і впишіть шифр і назву: адміністратор додасть його.'],
     ['🔎','Назви об\'єктів показуються повністю.'],
     ['🔄','Вийшла нова версія — знизу синя смуга, натисніть її.']
   ],
   admin:[
     ['👤','У «Статистиці» — вибір співробітника: його календар, години й об\'єкти за весь час, включно з колишніми.'],
     ['📡','Моніторинг: період «за весь час» і години кожного співробітника на кожен об\'єкт.'],
+    ['⚠️','Моніторинг: блок «Записи поза реєстром» — позначте записи, виберіть об\'єкт із реєстру й натисніть «Замінити». Про нові такі записи прийде повідомлення в Telegram.'],
     ['✅','Усі дії адміна (ручний прихід, IP, запити) показують помилку, якщо сервер не зберіг.']
   ]
 };
@@ -1975,10 +1989,15 @@ function goToTomorrow(){
   const cards=[...document.querySelectorAll('.pcard')];
   for(const card of cards){
     const id=card.id.replace('pc_','');
-    let code=document.getElementById('pcode_'+id).value.trim();
+    const code=document.getElementById('pcode_'+id).value.trim();
     const raw=document.getElementById('pin_'+id).value.trim();
-    if(!code&&raw){if(raw.includes(' | ')){const p=raw.split(' | ');code=p[0].trim();}else code=raw;}
-    if(!code){toast('⚠️ Вкажіть об\'єкт у проекті '+id,'err');card.scrollIntoView({behavior:'smooth',block:'center'});return;}
+    // Об'єкт — лише вибраний зі списку, або явно «немає в списку» з описом
+    if(_isOffReg(id)){
+      if(raw.length<5){toast('⚠️ Опишіть об\'єкт у проекті '+id+' (шифр і назва)','err');card.scrollIntoView({behavior:'smooth',block:'center'});return;}
+    }else if(!code){
+      toast(raw?'⚠️ Проект '+id+': натисніть на об\'єкт у списку, що випадає, або «Об\'єкта немає в списку?»':'⚠️ Вкажіть об\'єкт у проекті '+id,'err');
+      card.scrollIntoView({behavior:'smooth',block:'center'});return;
+    }
     const wt=document.getElementById('pwt_'+id).value;
     if(!wt){toast('⚠️ Вкажіть вид робіт у проекті '+id,'err');card.scrollIntoView({behavior:'smooth',block:'center'});return;}
     const sec=document.getElementById('psec_'+id).value;
@@ -2021,6 +2040,14 @@ function addProj(){
       <input type="hidden" id="pcode_${i}"><input type="hidden" id="pname_${i}">
     </div>
     <div id="pfull_${i}" style="display:none;margin:-6px 0 12px;padding:7px 10px;background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.3);border-radius:7px;font-size:.74rem;color:var(--tx2);line-height:1.4;overflow-wrap:anywhere"></div>
+    <div id="poffl_${i}" style="margin:-8px 0 12px;text-align:right">
+      <button type="button" onclick="setOffReg(${i},true)" style="background:none;border:none;color:var(--tx3);font-size:.72rem;text-decoration:underline;cursor:pointer;padding:2px 0;font-family:inherit">Об'єкта немає в списку?</button>
+    </div>
+    <div id="poff_${i}" style="display:none;margin:-6px 0 12px;padding:9px 11px;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.45);border-radius:7px;font-size:.74rem;color:var(--tx2);line-height:1.45">
+      ⚠️ <b style="color:var(--warn)">Об'єкт поза реєстром.</b> Впишіть у поле вище шифр і назву якомога точніше.
+      Запис буде позначено «поза реєстром», адміністратор отримає повідомлення й додасть об'єкт у список.
+      <div style="margin-top:6px"><button type="button" onclick="setOffReg(${i},false)" style="background:none;border:none;color:var(--ach);font-size:.74rem;text-decoration:underline;cursor:pointer;padding:0;font-family:inherit">↩ Вибрати зі списку</button></div>
+    </div>
     <div class="f">
       <label>⚒ Вид робіт <span style="color:var(--err)">*</span></label>
       <select id="pwt_${i}">
@@ -2069,9 +2096,10 @@ function acFilt(i,q){
   document.getElementById('pcode_'+i).value='';document.getElementById('pname_'+i).value='';
   _showPFull(i,'','');
   acHi[i]=-1;const ql=q.trim().toLowerCase();
+  if(_isOffReg(i)){lst.classList.remove('open');return;} // режим «немає в списку» — вільний текст
   if(!ql||ql.length<2){lst.classList.remove('open');return;}
   const hits=objs().filter(o=>o.code.toLowerCase().includes(ql)||o.name.toLowerCase().includes(ql)).slice(0,70);
-  if(!hits.length){lst.innerHTML='<div class="ac-empty">Нічого не знайдено</div>';lst.classList.add('open');return;}
+  if(!hits.length){lst.innerHTML='<div class="ac-empty">Нічого не знайдено · <span onmousedown="event.preventDefault();setOffReg('+i+',true,true)" style="color:var(--warn);text-decoration:underline;cursor:pointer">Об\'єкта немає в списку →</span></div>';lst.classList.add('open');return;}
   lst.innerHTML=hits.map((o,idx)=>`<div class="aci" data-idx="${idx}" data-code="${esc(o.code)}" data-name="${esc(o.name)}" onmousedown="acSel(${i},this)"><div class="aci-code">${esc(o.code)}</div><div class="aci-name">${esc(o.name)}</div></div>`).join('');
   lst.classList.add('open');
 }
@@ -2093,6 +2121,21 @@ function acSel(i,el){
   document.getElementById('pname_'+i).value=name;
   document.getElementById('acl_'+i).classList.remove('open');
   _showPFull(i,code,name);
+}
+// ── Об'єкт «немає в списку»: вільний текст, позначка «поза реєстром», повідомлення адміну ──
+function _isOffReg(i){const c=document.getElementById('pc_'+i);return !!(c&&c.dataset.offreg==='1');}
+function setOffReg(i,on,keepText){
+  const card=document.getElementById('pc_'+i);if(!card)return;
+  card.dataset.offreg=on?'1':'';
+  const inp=document.getElementById('pin_'+i);
+  document.getElementById('pcode_'+i).value='';document.getElementById('pname_'+i).value='';
+  document.getElementById('acl_'+i).classList.remove('open');
+  _showPFull(i,'','');
+  document.getElementById('poff_'+i).style.display=on?'':'none';
+  document.getElementById('poffl_'+i).style.display=on?'none':'';
+  inp.placeholder=on?'напр. 2603-200-ПР Коригування, вул. Соборності України, 236':'напр. 2603 або Реконструкція...';
+  if(!keepText)inp.value='';
+  inp.focus();
 }
 // Повна назва вибраного об'єкта під полем (у однорядковому полі довга назва не вміщається)
 function _showPFull(i,code,name){
@@ -2309,11 +2352,13 @@ function collectRows(){
     let code=document.getElementById('pcode_'+id).value.trim();
     let name=document.getElementById('pname_'+id).value.trim();
     const raw=document.getElementById('pin_'+id).value.trim();
-    if(!code&&raw){if(raw.includes(' | ')){const p=raw.split(' | ');code=p[0].trim();name=p.slice(1).join(' | ').trim();}else code=raw;}
+    const off=_isOffReg(id);
+    if(off){code=raw;name='⚠ поза реєстром';}
+    else if(!code&&raw){if(raw.includes(' | ')){const p=raw.split(' | ');code=p[0].trim();name=p.slice(1).join(' | ').trim();}else code=raw;}
     const _ph=parseInt(document.getElementById('ptimeh_'+id).value,10)||0;
     const _pm=parseInt(document.getElementById('ptimem_'+id).value,10)||0;
     const _ts=_ph+':'+(_pm<10?'0':'')+_pm;
-    projs.push({code,name,wt:document.getElementById('pwt_'+id).value,timeSpent:_ts,section:document.getElementById('psec_'+id).value,desc:document.getElementById('pdesc_'+id).value.trim()});
+    projs.push({code,name,off,wt:document.getElementById('pwt_'+id).value,timeSpent:_ts,section:document.getElementById('psec_'+id).value,desc:document.getElementById('pdesc_'+id).value.trim()});
   }
   const date=document.getElementById('s2d').value,month=document.getElementById('s2m').value,
         arr=document.getElementById('s2a').value,lv=document.getElementById('s2l').value;
@@ -2325,7 +2370,7 @@ function collectRows(){
     lunchStr:lunchMin>0?minsPretty(lunchMin):'',
     hoursGross:minsToStr(grossMinsState),
     hours:minsToStr(netMins),
-    code:p.code,name:p.name,workType:p.wt,timeSpent:p.timeSpent,section:p.section,desc:p.desc,
+    code:p.code,name:p.name,offRegistry:p.off||undefined,workType:p.wt,timeSpent:p.timeSpent,section:p.section,desc:p.desc,
     tomorrowPlan:'',tomorrowDesc:''   // filled later
   }));
 }
@@ -2790,6 +2835,65 @@ async function loadAdminStats(){
     msg.textContent='';
     renderMonitoring(d);
   }catch(e){msg.textContent='❌ '+e.message;}
+  loadOffRegistry();
+}
+
+// ── Записи поза реєстром: перегляд і заміна на об'єкт із реєстру ──
+let _offItems=[];
+async function loadOffRegistry(){
+  const box=document.getElementById('monOffReg'),bar=document.getElementById('monOffBar');
+  const cfg=getCfg();if(!cfg.url)return;
+  box.innerHTML='<div style="font-size:.78rem;color:var(--tx3)">⏳ Завантаження...</div>';
+  try{
+    const p=new URLSearchParams({action:'offRegistry',objSheet:cfg.os,objCol:cfg.oc,tabSheet:cfg.tab,month:document.getElementById('monMonth').value});
+    const r=await fetch(cfg.url+'?'+p,{cache:'no-store'});
+    const d=await r.json();
+    if(!d.ok)throw new Error(d.error&&d.error.startsWith('Невідома дія')?'оновіть скрипт в Apps Script (нова версія)':d.error);
+    _offItems=d.items||[];
+    if(!_offItems.length){bar.style.display='none';box.innerHTML='<div style="font-size:.8rem;color:var(--ok)">✅ Усі записи за цей період — з об\'єктами з реєстру</div>';return;}
+    // Список об'єктів реєстру для поля вибору (один раз)
+    const dl=document.getElementById('objDL');
+    if(!dl.options.length)dl.innerHTML=objs().map(o=>'<option value="'+esc(o.code+(o.name?' | '+o.name:''))+'">').join('');
+    bar.style.display='flex';
+    // Групуємо за співробітником
+    const by={};_offItems.forEach((it,k)=>{(by[it.employee]=by[it.employee]||[]).push(k);});
+    box.innerHTML=Object.keys(by).sort((a,b)=>a.localeCompare(b,'uk')).map(emp=>{
+      const ks=by[emp],tot=ks.reduce((t,k)=>t+_offItems[k].mins,0);
+      return '<div style="margin-bottom:10px"><div style="font-size:.8rem;font-weight:700;margin-bottom:4px">👤 '+esc(emp)
+        +' <span style="font-weight:400;color:var(--tx3);font-size:.72rem">· '+ks.length+' об\'єкт(и) · '+minsPretty(tot)+'</span>'
+        +' <span onclick="_offSelEmp(\''+esc(emp).replace(/'/g,"\\'")+'\')" style="font-size:.7rem;color:var(--ach);text-decoration:underline;cursor:pointer;margin-left:6px">вибрати всі</span></div>'
+        +ks.map(k=>{const it=_offItems[k];
+          return '<label style="display:flex;gap:8px;align-items:flex-start;padding:6px 0;border-bottom:1px solid var(--bd);cursor:pointer;font-size:.76rem">'
+            +'<input type="checkbox" class="offchk" data-k="'+k+'" style="margin-top:2px;width:auto">'
+            +'<span style="flex:1;min-width:0;overflow-wrap:anywhere">«'+esc(it.code)+'»'
+            +'<div style="font-size:.68rem;color:var(--tx3)">'+esc(it.first)+(it.first!==it.last?' — '+esc(it.last):'')+' · '+it.days+' дн. · '+it.rows+' рядк.</div></span>'
+            +'<b style="color:var(--ach);white-space:nowrap">'+minsPretty(it.mins)+'</b></label>';
+        }).join('')+'</div>';
+    }).join('');
+  }catch(e){bar.style.display='none';box.innerHTML='<div style="font-size:.78rem;color:var(--err)">❌ '+esc(e.message)+'</div>';}
+}
+function _offSelEmp(emp){
+  document.querySelectorAll('.offchk').forEach(c=>{if(_offItems[+c.dataset.k].employee===emp)c.checked=true;});
+}
+async function remapOffSelected(){
+  const sel=[...document.querySelectorAll('.offchk:checked')].map(c=>_offItems[+c.dataset.k]);
+  if(!sel.length){toast('⚠️ Позначте записи, які треба замінити','warn');return;}
+  const v=document.getElementById('monOffObj').value.trim();
+  const code=v.split(' | ')[0].trim();
+  const obj=objs().find(o=>o.code===code);
+  if(!obj){toast('⚠️ Виберіть об\'єкт зі списку, що випадає (шифр | назва)','err');document.getElementById('monOffObj').focus();return;}
+  const rows=sel.reduce((t,it)=>t+it.rows,0);
+  if(!confirm('Замінити '+sel.length+' варіант(и) ('+rows+' рядк.) на:\n'+obj.code+(obj.name?' — '+obj.name:'')+' ?'))return;
+  const btn=document.getElementById('monOffBtn');btn.disabled=true;btn.innerHTML='<span class="spin"></span>';
+  let done=0,fail=0;
+  for(const it of sel){
+    try{const d=await postGAS({type:'remapObject',employee:it.employee,oldCode:it.code,newCode:obj.code,newName:obj.name,tabSheet:getCfg().tab});done+=d.updated||0;}
+    catch(e){fail++;console.error('remap',it,e);}
+  }
+  btn.disabled=false;btn.innerHTML='Замінити вибрані';
+  toast(fail?'⚠️ Оновлено рядків: '+done+', помилок: '+fail:'✅ Оновлено рядків: '+done,fail?'warn':'ok');
+  document.getElementById('monOffObj').value='';
+  loadOffRegistry();
 }
 
 function renderMonitoring(d){
