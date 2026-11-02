@@ -23,6 +23,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Versioning
 
+- For a notable, user-visible release, change `WHATS_NEW.id` and rewrite its `items` (and the `admin` items) in `template_v2.html`. This shows the "Що нового" modal once per device before login. Keep each item one or two short Ukrainian sentences, and leave `id` unchanged for minor fixes.
+
 - On every release, bump the version (format `vYY.MM.DD`) in all four places: `#appVersion` in `template_v2.html`, and in `apps_script.gs` the header comment, the `doGet` "Табель API vXX працює" message and the `testTelegram` message.
 - Release commits are in Ukrainian and use the form `vYYMMDDHHMM — <summary>`, followed by a bullet list.
 

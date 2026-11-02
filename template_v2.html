@@ -738,6 +738,7 @@ body.upd-on .toast{bottom:70px}
   <div style="display:flex;flex-direction:column;gap:8px;margin-top:4px">
     <button class="um-btn" onclick="closeUserMenu();openMissedDayForm()">📋 Внести пропущений день</button>
     <button class="um-btn" onclick="openInstruction()">📖 Інструкція</button>
+    <button class="um-btn" onclick="closeUserMenu();showWhatsNew(true)">🆕 Що нового</button>
     <button class="um-btn" id="umAdminBtn" style="display:none" onclick="closeUserMenu();openAdminSettings()">⚙ Налаштування адміністратора</button>
     <button class="um-btn danger" onclick="closeUserMenu();logout()">🚪 Вийти</button>
   </div>
@@ -746,6 +747,15 @@ body.upd-on .toast{bottom:70px}
 
 <!-- ═══ UNCLOSED DAY BLOCKING MODAL ═══ -->
 <div id="unclosedStrip" onclick="openCloseDay()"></div>
+<!-- ═══ ЩО НОВОГО (показується один раз після виходу нової версії, до входу) ═══ -->
+<div id="wnOv" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:985;align-items:flex-start;justify-content:center;padding:20px 16px;overflow-y:auto">
+<div style="background:var(--s1);border:2px solid var(--ac);border-radius:14px;width:100%;max-width:480px;padding:24px 20px;margin:auto;box-shadow:0 8px 40px rgba(0,0,0,.8)">
+  <div style="font-size:1.05rem;font-weight:800;color:var(--ach);margin-bottom:4px">🆕 Що нового в табелі</div>
+  <div id="wnVer" style="font-size:.72rem;color:var(--tx3);margin-bottom:14px"></div>
+  <div id="wnList"></div>
+  <button class="btn btn-p" style="width:100%;margin-top:16px" onclick="closeWhatsNew()">✅ Зрозуміло, продовжити</button>
+</div>
+</div>
 <div id="updBar" onclick="applyUpdate()">🔄 Вийшла нова версія табеля · <u>Натисніть, щоб оновити</u></div>
 <div id="unclosedOv" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:970;align-items:center;justify-content:center;padding:20px">
 <div style="background:var(--s1);border:2px solid var(--warn);border-radius:14px;width:100%;max-width:420px;padding:28px 22px;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,.8)">
@@ -958,6 +968,58 @@ body.upd-on .toast{bottom:70px}
 // ═══ ADMIN ACCESS ═══
 const ADMIN_USER = 'Любченко С.';
 
+// ═══ ЩО НОВОГО ═══
+// Змініть id і пункти, коли виходить помітне оновлення: вікно з'явиться один раз на кожному
+// пристрої (до входу), поки не натиснуть «Продовжити». Дрібні виправлення — id не міняти.
+const WHATS_NEW={
+  id:'26.11.02',
+  items:[
+    ['📅','<b>Календар у «Статистиці»</b>: зелений — відпрацьовано, червоний — пропущено, жовтий — немає відходу. Натисніть на день — побачите деталі.'],
+    ['📊','Години за місяць і норма, дні в офісі / вдома / у відрядженні, години по кожному об\'єкту — за місяць і за весь час.'],
+    ['💾','«✅ Відправлено» з\'являється, лише коли таблиця підтвердила запис. Немає інтернету — дані збережуться на телефоні й дошлються самі. <b>Відкрийте табель на цьому ж телефоні</b>, коли з\'явиться зв\'язок.'],
+    ['🟡','Незакритий день більше не блокує роботу: зверху жовта смуга, закрити його можна з кодом адміністратора. Не закрито 3 дні — порушення.'],
+    ['🔎','Назви об\'єктів показуються повністю.'],
+    ['🔄','Вийшла нова версія — знизу синя смуга, натисніть її.']
+  ],
+  admin:[
+    ['👤','У «Статистиці» — вибір співробітника: його календар, години й об\'єкти за весь час, включно з колишніми.'],
+    ['📡','Моніторинг: період «за весь час» і години кожного співробітника на кожен об\'єкт.'],
+    ['✅','Усі дії адміна (ручний прихід, IP, запити) показують помилку, якщо сервер не зберіг.']
+  ]
+};
+let _wnShownAdmin=false;
+function _wnRows(list){
+  return list.map(([ic,t])=>'<div style="display:flex;gap:10px;align-items:flex-start;margin-bottom:10px;font-size:.82rem;line-height:1.45;color:var(--tx2)">'
+    +'<span style="font-size:1.05rem;flex-shrink:0;line-height:1.3">'+ic+'</span><span>'+t+'</span></div>').join('');
+}
+// force — відкрити з меню; adminOnly — лише блок для адміністратора (після його входу)
+function showWhatsNew(force,adminOnly){
+  const isAdm=user===ADMIN_USER;
+  let h='';
+  if(!adminOnly)h+=_wnRows(WHATS_NEW.items);
+  if(isAdm&&WHATS_NEW.admin.length){
+    h+='<div style="font-size:.7rem;font-weight:700;color:var(--ach);text-transform:uppercase;letter-spacing:.6px;margin:'+(adminOnly?'0':'14px')+' 0 10px">Для адміністратора</div>'
+      +_wnRows(WHATS_NEW.admin);
+  }
+  if(!h)return;
+  _wnShownAdmin=isAdm;
+  document.getElementById('wnVer').textContent='Версія '+document.getElementById('appVersion').textContent;
+  document.getElementById('wnList').innerHTML=h;
+  document.getElementById('wnOv').style.display='flex';
+}
+function closeWhatsNew(){
+  document.getElementById('wnOv').style.display='none';
+  ls_s('wn_seen',WHATS_NEW.id);
+  if(_wnShownAdmin)ls_s('wn_seen_adm',WHATS_NEW.id);
+}
+function _wnAutoShow(){if(ls('wn_seen')!==WHATS_NEW.id)showWhatsNew(false,false);}
+// Після входу адміна: якщо блок для адміністратора ще не бачили — показати лише його
+function _wnAdminAfterLogin(){
+  if(user!==ADMIN_USER||ls('wn_seen_adm')===WHATS_NEW.id)return;
+  if(document.getElementById('wnOv').style.display==='flex'){showWhatsNew(false,false);return;} // загальне ще відкрите — доповнюємо
+  showWhatsNew(false,true);
+}
+
 // ═══ ПЕРЕВІРКА НОВОЇ ВЕРСІЇ ФОРМИ ═══
 // generate_html.py підставляє номер збірки (YYMMDDHHMM). Форма періодично завантажує свіжий
 // index.html з сайту (в обхід кешу) і порівнює номер. Новіший → смуга «Вийшла нова версія».
@@ -1054,6 +1116,8 @@ document.addEventListener('DOMContentLoaded', async ()=>{
   document.getElementById('s1p').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
   // Досилаємо записи, які не дійшли минулого разу
   setTimeout(()=>flushOutbox(),1500);
+  // «Що нового» — один раз після виходу помітного оновлення (до входу)
+  _wnAutoShow();
 
   // Паралельно: серверний час + дані з Sheets (потрібні до перевірки сесії)
   const url=getCfg().url;
@@ -1080,6 +1144,7 @@ document.addEventListener('DOMContentLoaded', async ()=>{
       goStep(2);
     }
     refreshUnclosed();
+    _wnAdminAfterLogin();
   }
 
   startLiveTimer();
@@ -1442,6 +1507,7 @@ async function doLogin(){
   if(p!==getPwd(n)){toast('❌ Невірний пароль','err');document.getElementById('s1p').select();return;}
   user=n;sessionStorage.setItem('tabel_u',n);setBadge(n);
   refreshUnclosed(); // у фоні: незакриті попередні дні → жовта смуга
+  _wnAdminAfterLogin();
 
   // Пріоритет 1: localStorage (швидкий шлях)
   const arr=getArrState();
