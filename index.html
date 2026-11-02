@@ -966,11 +966,14 @@ body.upd-on .toast{bottom:70px}
   <!-- Записи з об'єктами, яких немає в реєстрі -->
   <div class="adm-sec" style="border-color:rgba(245,158,11,.4)">
     <div class="adm-sec-t" style="color:var(--warn)">⚠️ Записи поза реєстром</div>
-    <div style="font-size:.72rem;color:var(--tx3);margin-bottom:10px;line-height:1.5">Об'єкти, яких немає в реєстрі: введені вручну або їхній шифр у реєстрі змінився. Позначте записи, виберіть правильний об'єкт і натисніть «Замінити» — оновляться всі рядки табеля цього співробітника з цим текстом.</div>
-    <div id="monOffBar" style="display:none;gap:6px;flex-wrap:wrap;margin-bottom:10px">
-      <input id="monOffObj" list="objDL" placeholder="Почніть вводити шифр або назву з реєстру…" autocomplete="off"
-        style="flex:1;min-width:200px;background:var(--inp);border:1px solid var(--bd);border-radius:7px;color:var(--tx);padding:7px 10px;font-size:.8rem;font-family:inherit">
-      <button class="btn btn-p" style="padding:7px 14px;font-size:.8rem" id="monOffBtn" onclick="remapOffSelected()">Замінити вибрані</button>
+    <div style="font-size:.72rem;color:var(--tx3);margin-bottom:10px;line-height:1.5">Об'єкти, яких немає в реєстрі: введені вручну або їхній шифр у реєстрі змінився. Таблицю вручну правити не треба — виправлення робиться тут:</div>
+    <div id="monOffBar" style="display:none;flex-direction:column;gap:8px;margin-bottom:12px;padding:10px;background:var(--s3);border-radius:8px">
+      <div style="font-size:.76rem;color:var(--tx2)"><b>1.</b> Поставте ✓ біля записів нижче, які означають один і той самий об'єкт · <b id="monOffCnt" style="color:var(--warn)">вибрано: 0</b></div>
+      <div style="font-size:.76rem;color:var(--tx2)"><b>2.</b> Виберіть правильний об'єкт: почніть вводити шифр або назву й натисніть на підказку</div>
+      <input id="monOffObj" list="objDL" placeholder="напр. 2603-200 або 0000-БУХ" autocomplete="off"
+        style="width:100%;background:var(--inp);border:1px solid var(--ac);border-radius:7px;color:var(--tx);padding:8px 10px;font-size:.82rem;font-family:inherit">
+      <div style="font-size:.76rem;color:var(--tx2)"><b>3.</b> Натисніть кнопку — записи в таблиці виправляться автоматично</div>
+      <button class="btn btn-p" style="padding:8px 14px;font-size:.82rem" id="monOffBtn" onclick="remapOffSelected()">✏️ Замінити вибрані</button>
     </div>
     <div id="monOffReg"></div>
   </div>
@@ -1046,7 +1049,7 @@ function _wnAdminAfterLogin(){
 // ═══ ПЕРЕВІРКА НОВОЇ ВЕРСІЇ ФОРМИ ═══
 // generate_html.py підставляє номер збірки (YYMMDDHHMM). Форма періодично завантажує свіжий
 // index.html з сайту (в обхід кешу) і порівнює номер. Новіший → смуга «Вийшла нова версія».
-const APP_BUILD='2611020500';
+const APP_BUILD='2611020520';
 let _updLastCheck=0;
 async function checkForUpdate(){
   if(location.protocol==='file:'||!/^\d+$/.test(APP_BUILD))return; // локальний файл / не зібрано
@@ -2871,7 +2874,7 @@ async function loadOffRegistry(){
     // Список об'єктів реєстру для поля вибору (один раз)
     const dl=document.getElementById('objDL');
     if(!dl.options.length)dl.innerHTML=objs().map(o=>'<option value="'+esc(o.code+(o.name?' | '+o.name:''))+'">').join('');
-    bar.style.display='flex';
+    bar.style.display='flex';_offCnt();
     // Групуємо за співробітником
     const by={};_offItems.forEach((it,k)=>{(by[it.employee]=by[it.employee]||[]).push(k);});
     box.innerHTML=Object.keys(by).sort((a,b)=>a.localeCompare(b,'uk')).map(emp=>{
@@ -2881,7 +2884,7 @@ async function loadOffRegistry(){
         +' <span onclick="_offSelEmp(\''+esc(emp).replace(/'/g,"\\'")+'\')" style="font-size:.7rem;color:var(--ach);text-decoration:underline;cursor:pointer;margin-left:6px">вибрати всі</span></div>'
         +ks.map(k=>{const it=_offItems[k];
           return '<label style="display:flex;gap:8px;align-items:flex-start;padding:6px 0;border-bottom:1px solid var(--bd);cursor:pointer;font-size:.76rem">'
-            +'<input type="checkbox" class="offchk" data-k="'+k+'" style="margin-top:2px;width:auto">'
+            +'<input type="checkbox" class="offchk" data-k="'+k+'" onchange="_offCnt()" style="margin-top:2px;width:auto;transform:scale(1.25)">'
             +'<span style="flex:1;min-width:0;overflow-wrap:anywhere">«'+esc(it.code)+'»'
             +'<div style="font-size:.68rem;color:var(--tx3)">'+esc(it.first)+(it.first!==it.last?' — '+esc(it.last):'')+' · '+it.days+' дн. · '+it.rows+' рядк.</div></span>'
             +'<b style="color:var(--ach);white-space:nowrap">'+minsPretty(it.mins)+'</b></label>';
@@ -2891,13 +2894,23 @@ async function loadOffRegistry(){
 }
 function _offSelEmp(emp){
   document.querySelectorAll('.offchk').forEach(c=>{if(_offItems[+c.dataset.k].employee===emp)c.checked=true;});
+  _offCnt();
+}
+function _offCnt(){
+  const sel=[...document.querySelectorAll('.offchk:checked')].map(c=>_offItems[+c.dataset.k]);
+  const el=document.getElementById('monOffCnt');if(el)el.textContent='вибрано: '+sel.length+(sel.length?' ('+minsPretty(sel.reduce((t,i)=>t+i.mins,0))+')':'');
 }
 async function remapOffSelected(){
   const sel=[...document.querySelectorAll('.offchk:checked')].map(c=>_offItems[+c.dataset.k]);
   if(!sel.length){toast('⚠️ Позначте записи, які треба замінити','warn');return;}
   const v=document.getElementById('monOffObj').value.trim();
   const code=v.split(' | ')[0].trim();
-  const obj=objs().find(o=>o.code===code);
+  let obj=objs().find(o=>o.code===code);
+  if(!obj&&code.length>=3){ // ввели лише частину шифру — приймаємо, якщо підходить рівно один об'єкт
+    const lc=code.toLowerCase(),m=objs().filter(o=>o.code.toLowerCase().includes(lc));
+    if(m.length===1)obj=m[0];
+    else if(m.length>1){toast('⚠️ Під «'+code+'» підходить '+m.length+' об\'єктів — натисніть на потрібний у підказці','err');document.getElementById('monOffObj').focus();return;}
+  }
   if(!obj){toast('⚠️ Виберіть об\'єкт зі списку, що випадає (шифр | назва)','err');document.getElementById('monOffObj').focus();return;}
   const rows=sel.reduce((t,it)=>t+it.rows,0);
   if(!confirm('Замінити '+sel.length+' варіант(и) ('+rows+' рядк.) на:\n'+obj.code+(obj.name?' — '+obj.name:'')+' ?'))return;
@@ -2907,7 +2920,7 @@ async function remapOffSelected(){
     try{const d=await postGAS({type:'remapObject',employee:it.employee,oldCode:it.code,newCode:obj.code,newName:obj.name,tabSheet:getCfg().tab});done+=d.updated||0;}
     catch(e){fail++;console.error('remap',it,e);}
   }
-  btn.disabled=false;btn.innerHTML='Замінити вибрані';
+  btn.disabled=false;btn.innerHTML='✏️ Замінити вибрані';
   toast(fail?'⚠️ Оновлено рядків: '+done+', помилок: '+fail:'✅ Оновлено рядків: '+done,fail?'warn':'ok');
   document.getElementById('monOffObj').value='';
   loadOffRegistry();
