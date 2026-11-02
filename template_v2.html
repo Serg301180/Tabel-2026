@@ -1949,6 +1949,7 @@ function addProj(){
       <div class="acl" id="acl_${i}"></div>
       <input type="hidden" id="pcode_${i}"><input type="hidden" id="pname_${i}">
     </div>
+    <div id="pfull_${i}" style="display:none;margin:-6px 0 12px;padding:7px 10px;background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.3);border-radius:7px;font-size:.74rem;color:var(--tx2);line-height:1.4;overflow-wrap:anywhere"></div>
     <div class="f">
       <label>⚒ Вид робіт <span style="color:var(--err)">*</span></label>
       <select id="pwt_${i}">
@@ -1995,11 +1996,12 @@ function rmProj(i){
 function acFilt(i,q){
   const lst=document.getElementById('acl_'+i);
   document.getElementById('pcode_'+i).value='';document.getElementById('pname_'+i).value='';
+  _showPFull(i,'','');
   acHi[i]=-1;const ql=q.trim().toLowerCase();
   if(!ql||ql.length<2){lst.classList.remove('open');return;}
   const hits=objs().filter(o=>o.code.toLowerCase().includes(ql)||o.name.toLowerCase().includes(ql)).slice(0,70);
   if(!hits.length){lst.innerHTML='<div class="ac-empty">Нічого не знайдено</div>';lst.classList.add('open');return;}
-  lst.innerHTML=hits.map((o,idx)=>`<div class="aci" data-idx="${idx}" data-code="${esc(o.code)}" data-name="${esc(o.name)}" onmousedown="acSel(${i},this)"><div class="aci-code">${esc(o.code)}</div><div class="aci-name">${esc(o.name.length>95?o.name.slice(0,95)+'…':o.name)}</div></div>`).join('');
+  lst.innerHTML=hits.map((o,idx)=>`<div class="aci" data-idx="${idx}" data-code="${esc(o.code)}" data-name="${esc(o.name)}" onmousedown="acSel(${i},this)"><div class="aci-code">${esc(o.code)}</div><div class="aci-name">${esc(o.name)}</div></div>`).join('');
   lst.classList.add('open');
 }
 function acKey(e,i){
@@ -2019,6 +2021,14 @@ function acSel(i,el){
   document.getElementById('pcode_'+i).value=code;
   document.getElementById('pname_'+i).value=name;
   document.getElementById('acl_'+i).classList.remove('open');
+  _showPFull(i,code,name);
+}
+// Повна назва вибраного об'єкта під полем (у однорядковому полі довга назва не вміщається)
+function _showPFull(i,code,name){
+  const el=document.getElementById('pfull_'+i);if(!el)return;
+  if(!code){el.style.display='none';el.innerHTML='';return;}
+  el.innerHTML='✅ <b>'+esc(code)+'</b>'+(name?' — '+esc(name):'');
+  el.style.display='';
 }
 
 // ═══ ARRIVAL STATE (localStorage) ═══
