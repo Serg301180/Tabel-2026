@@ -1112,7 +1112,11 @@ async function loadFromSheets(showMsg=true){
 function openAdmin(){openAdminSettings();}  // зворотна сумісність
 function closeAdmin(){document.getElementById('admOv').classList.remove('open');}
 async function saveAndLoad(){
-  ls_s(K.url,document.getElementById('cfgUrl').value.trim());
+  // Адресу з коду (DEFAULT_URL) не запам'ятовуємо: інакше після зміни DEFAULT_URL
+  // цей браузер і далі ходив би на старе розгортання
+  const _u=document.getElementById('cfgUrl').value.trim();
+  if(!_u||_u===DEFAULT_URL){try{localStorage.removeItem(K.url);}catch(e){}}
+  else ls_s(K.url,_u);
   ls_s(K.tab,document.getElementById('cfgTabSheet').value.trim()||'ТАБЕЛЬ');
   ls_s(K.es,document.getElementById('cfgES').value.trim()||'СПРАВОЧНИК');
   ls_s(K.ec,document.getElementById('cfgEC').value.trim().toUpperCase()||'A');
