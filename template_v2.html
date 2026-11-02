@@ -892,8 +892,9 @@ body.upd-on .toast{bottom:70px}
 <div class="adm-ov" id="statsOv">
 <div class="adm-box" style="max-width:800px">
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
-    <div class="adm-title" style="margin:0">📊 Моя статистика</div>
+    <div class="adm-title" style="margin:0" id="statsTitle">📊 Моя статистика</div>
     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <select id="statsEmp" onchange="onStatsEmp()" style="display:none;background:var(--inp);border:1px solid var(--ac);border-radius:7px;color:var(--tx);padding:6px 10px;font-size:.8rem;font-family:inherit;max-width:200px"></select>
       <select id="statsMonth" onchange="loadMyStats()" style="background:var(--inp);border:1px solid var(--bd);border-radius:7px;color:var(--tx);padding:6px 10px;font-size:.8rem;font-family:inherit"></select>
       <span id="statsLoadMsg" style="font-size:.75rem;color:var(--tx3)"></span>
       <button class="btn btn-s" style="padding:6px 12px;font-size:.8rem" onclick="closeStats()">✕ Закрити</button>
@@ -908,10 +909,11 @@ body.upd-on .toast{bottom:70px}
   <div id="statsProjects"></div>
   <div class="adm-sec">
     <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
-      <div class="adm-sec-t" style="margin:0">🏗 Мої об'єкти за весь час</div>
-      <button class="btn btn-s" style="padding:5px 12px;font-size:.76rem" onclick="loadMyObjects(this)">Показати</button>
+      <div class="adm-sec-t" style="margin:0" id="statsAllObjT">🏗 Мої об'єкти за весь час</div>
+      <button class="btn btn-s" id="statsAllObjBtn" style="padding:5px 12px;font-size:.76rem" onclick="loadMyObjects(this)">Оновити</button>
     </div>
-    <div id="statsAllObj"></div>
+    <div style="font-size:.66rem;color:var(--tx3);margin-top:4px">Від останніх до найстаріших · дати — перший і останній день роботи над об'єктом</div>
+    <div id="statsAllObj" style="max-height:420px;overflow-y:auto;margin-top:4px"></div>
   </div>
 </div>
 </div>
@@ -2351,11 +2353,33 @@ function _buildMonthOptions(selId){
   }
 }
 
+// Чию статистику показуємо: адмін може вибрати будь-якого співробітника, решта — тільки себе
+function _statsEmp(){
+  const s=document.getElementById('statsEmp');
+  return (user===ADMIN_USER&&s&&s.value)||user;
+}
 function openStats(){
   if(!user){toast('⚠️ Спочатку увійдіть','warn');return;}
   _buildMonthOptions('statsMonth');
+  const es=document.getElementById('statsEmp');
+  if(user===ADMIN_USER){
+    const cur=es.value||user;
+    es.innerHTML='';
+    const list=emps().includes(user)?emps():[user,...emps()];
+    list.forEach(n=>{const o=document.createElement('option');o.value=o.textContent=n;es.appendChild(o);});
+    es.value=list.includes(cur)?cur:user;
+    es.style.display='';
+  } else es.style.display='none';
   document.getElementById('statsOv').classList.add('open');
+  onStatsEmp();
+}
+function onStatsEmp(){
+  const own=_statsEmp()===user;
+  document.getElementById('statsTitle').textContent=own?'📊 Моя статистика':'📊 Статистика співробітника';
+  document.getElementById('statsAllObjT').textContent=own?'🏗 Мої об\'єкти за весь час':'🏗 Об\'єкти за весь час';
+  document.getElementById('statsAllObj').innerHTML='';
   loadMyStats();
+  loadMyObjects(document.getElementById('statsAllObjBtn'));
 }
 function closeStats(){_hideCalTip();document.getElementById('statsOv').classList.remove('open');}
 document.getElementById('statsOv').addEventListener('click',e=>{if(e.target===e.currentTarget)closeStats();});
@@ -2372,9 +2396,11 @@ async function loadMyStats(){
   });
   if(!cfg.url){msg.textContent='⚠️ Sheets не підключено';return;}
   try{
-    const r=await fetch(cfg.url+'?action=myStats&employee='+encodeURIComponent(user)+'&month='+month+'&tabSheet='+encodeURIComponent(cfg.tab),{cache:'no-store'});
+    const emp=_statsEmp();
+    const r=await fetch(cfg.url+'?action=myStats&employee='+encodeURIComponent(emp)+'&month='+month+'&tabSheet='+encodeURIComponent(cfg.tab),{cache:'no-store'});
     const d=await r.json();
     if(!d.ok)throw new Error(d.error);
+    if(emp!==_statsEmp()||month!==sel.value)return; // поки вантажили, вибір змінився
     msg.textContent='';
     renderMyStats(d.records||[]);
   }catch(e){msg.textContent='❌ '+e.message;}
@@ -2604,10 +2630,13 @@ async function loadMyObjects(btn){
   if(!cfg.url||!user){box.innerHTML='<div style="font-size:.78rem;color:var(--tx3);padding-top:8px">⚠️ Sheets не підключено</div>';return;}
   if(btn){btn.disabled=true;btn.innerHTML='<span class="spin"></span>';}
   try{
-    const r=await fetch(cfg.url+'?action=myObjects&employee='+encodeURIComponent(user)+'&tabSheet='+encodeURIComponent(cfg.tab),{cache:'no-store'});
+    const emp=_statsEmp();
+    const r=await fetch(cfg.url+'?action=myObjects&employee='+encodeURIComponent(emp)+'&tabSheet='+encodeURIComponent(cfg.tab),{cache:'no-store'});
     const d=await r.json();
     if(!d.ok)throw new Error(d.error||'помилка сервера');
-    const objs=d.objects||[];
+    if(emp!==_statsEmp())return; // поки вантажили, адмін вибрав іншого співробітника
+    // Від останніх до найстаріших (за останнім днем роботи над об'єктом)
+    const objs=(d.objects||[]).sort((a,b)=>(b.last||'').localeCompare(a.last||'')||b.mins-a.mins);
     if(!objs.length){box.innerHTML='<div style="font-size:.78rem;color:var(--tx3);padding-top:8px">Записів не знайдено</div>';}
     else{
       const total=objs.reduce((t,o)=>t+o.mins,0);
@@ -2622,7 +2651,7 @@ async function loadMyObjects(btn){
     if(btn)btn.innerHTML='Оновити';
   }catch(e){
     box.innerHTML='<div style="font-size:.78rem;color:var(--err);padding-top:8px">❌ '+esc(e.message)+'</div>';
-    if(btn)btn.innerHTML='Показати';
+    if(btn)btn.innerHTML='Оновити';
   }
   if(btn)btn.disabled=false;
 }
