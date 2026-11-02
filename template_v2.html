@@ -1567,7 +1567,13 @@ async function refreshUnclosed(){
     const d=await r.json();
     if(!d.ok)return;
     // Стара версія скрипта повертає лише один день без list
-    _unclosedDays=d.list||(d.hasOpenSession?[{date:d.date,month:d.month,arrival:d.arrival,location:d.location,ip:d.ip}]:[]);
+    const list=d.list||(d.hasOpenSession?[{date:d.date,month:d.month,arrival:d.arrival,location:d.location,ip:d.ip}]:[]);
+    // День, відхід за який ще чекає в черзі на цьому пристрої (сів телефон / не було інтернету),
+    // не вважаємо незакритим — його закриє автоматичне досилання
+    const pend=new Set(outboxGet()
+      .filter(p=>(p.type==='full'||p.type==='missedDayFull')&&p.rows&&p.rows[0]&&p.rows[0].employee===user)
+      .map(p=>p.rows[0].date));
+    _unclosedDays=list.filter(x=>!pend.has(x.date));
     _updUnclosedStrip();
   }catch(e){console.warn('checkPrevSession error:',e);}
 }
@@ -2110,6 +2116,7 @@ async function flushOutbox(silent){
   const left=outboxGet().length;
   if(sent&&!silent)toast('✅ Дослано збережених записів: '+sent+(left?' · ще в черзі: '+left:''),'ok');
   updSendWarn();
+  if(sent&&user)refreshUnclosed(); // дослали відхід — жовта смуга про цей день має зникнути
   return left;
 }
 // Банер на кроці 8: показує, що табель ще не дійшов до таблиці
