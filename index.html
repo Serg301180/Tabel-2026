@@ -961,7 +961,7 @@ const ADMIN_USER = 'Любченко С.';
 // ═══ ПЕРЕВІРКА НОВОЇ ВЕРСІЇ ФОРМИ ═══
 // generate_html.py підставляє номер збірки (YYMMDDHHMM). Форма періодично завантажує свіжий
 // index.html з сайту (в обхід кешу) і порівнює номер. Новіший → смуга «Вийшла нова версія».
-const APP_BUILD='2611020312';
+const APP_BUILD='2611020340';
 let _updLastCheck=0;
 async function checkForUpdate(){
   if(location.protocol==='file:'||!/^\d+$/.test(APP_BUILD))return; // локальний файл / не зібрано
@@ -1164,14 +1164,14 @@ async function submitManualEntry(){
   const btn=document.getElementById('mrSubmitBtn');
   btn.innerHTML='<span class="spin"></span> Відправляємо...';btn.disabled=true;
   try{
-    await fetch(cfg.url,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain'},
-      body:JSON.stringify({type:'arrival',tabSheet:cfg.tab,
-        employee:emp,date,month,ip:'адмін-запис',location:loc,arrival:arr})});
+    await postGAS({type:'arrival',tabSheet:cfg.tab,
+        employee:emp,date,month,ip:'адмін-запис',location:loc,arrival:arr});
     toast('✅ Прихід записано: '+emp+' о '+arr,'ok');
     document.getElementById('mrEmp').value='';
     document.getElementById('mrArr').value='';
   }catch(e){
-    toast('❌ Помилка: '+e.message,'err');
+    if(e.server&&e.server.error==='duplicate')toast('⚠️ У '+emp+' вже є запис за '+date+' (прихід '+(e.server.existingArrival||'—')+')','warn');
+    else toast('❌ Не записано: '+e.message,'err');
     console.error(e);
   }
   btn.innerHTML='📝 Записати прихід';btn.disabled=false;
@@ -1224,10 +1224,9 @@ async function saveWhiteIPs(){
   const cfg=getCfg();if(!cfg.url){toast('⚠️ URL не вказано','warn');return;}
   const valid=_ipData.filter(r=>r.ip.trim());
   try{
-    await fetch(cfg.url,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain'},
-      body:JSON.stringify({type:'saveWhiteIPs',ips:valid})});
+    await postGAS({type:'saveWhiteIPs',ips:valid});
     toast('✅ Список IP збережено ('+valid.length+' записів)','ok');
-  }catch(e){toast('❌ Помилка збереження','err');}
+  }catch(e){toast('❌ Список IP НЕ збережено: '+e.message,'err');}
 }
 
 document.getElementById('admOv').addEventListener('click',e=>{if(e.target===e.currentTarget)closeAdmin();});
@@ -2374,15 +2373,39 @@ function openStats(){
   _buildMonthOptions('statsMonth');
   const es=document.getElementById('statsEmp');
   if(user===ADMIN_USER){
-    const cur=es.value||user;
-    es.innerHTML='';
-    const list=emps().includes(user)?emps():[user,...emps()];
-    list.forEach(n=>{const o=document.createElement('option');o.value=o.textContent=n;es.appendChild(o);});
-    es.value=list.includes(cur)?cur:user;
+    _fillStatsEmp(es.value||user,[]);
     es.style.display='';
+    _loadFormerEmps(); // у фоні: додати звільнених (є в табелі, нема в довіднику)
   } else es.style.display='none';
   document.getElementById('statsOv').classList.add('open');
   onStatsEmp();
+}
+// Список співробітників для адміна: довідник + ті, хто є лише в записах табеля (колишні)
+function _fillStatsEmp(cur,former){
+  const es=document.getElementById('statsEmp');
+  const list=emps().includes(user)?emps().slice():[user,...emps()];
+  es.innerHTML='';
+  list.forEach(n=>{const o=document.createElement('option');o.value=o.textContent=n;es.appendChild(o);});
+  if(former.length){
+    const g=document.createElement('optgroup');g.label='Колишні (немає в довіднику)';
+    former.forEach(f=>{const o=document.createElement('option');o.value=f.name;
+      o.textContent=f.name+' (колишній, до '+_ddmm(f.last)+'.'+f.last.slice(2,4)+')';g.appendChild(o);});
+    es.appendChild(g);
+  }
+  const all=[...list,...former.map(f=>f.name)];
+  es.value=all.includes(cur)?cur:user;
+}
+async function _loadFormerEmps(){
+  const cfg=getCfg();if(!cfg.url)return;
+  try{
+    const r=await fetch(cfg.url+'?action=allEmployees&tabSheet='+encodeURIComponent(cfg.tab),{cache:'no-store'});
+    const d=await r.json();
+    if(!d.ok)return; // стара версія скрипта — лише довідник
+    const known=new Set(emps().concat([user]));
+    const former=(d.employees||[]).filter(x=>!known.has(x.name)).sort((a,b)=>(b.last||'').localeCompare(a.last||''));
+    const es=document.getElementById('statsEmp');
+    _fillStatsEmp(es.value,former); // поточний вибір зберігається
+  }catch(e){console.warn('allEmployees:',e);}
 }
 function onStatsEmp(){
   const own=_statsEmp()===user;
@@ -2893,8 +2916,7 @@ async function requestOTP(){
   btn.disabled=true;btn.innerHTML='⏳ Надсилання...';
   document.getElementById('otpReqMsg').textContent='';
   try{
-    await fetch(cfg.url,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain'},
-      body:JSON.stringify({type:'requestOTP',employee:s.employee||user,date:s.date,arrival:s.arrival,location:s.location})});
+    await postGAS({type:'requestOTP',employee:s.employee||user,date:s.date,arrival:s.arrival,location:s.location});
     document.getElementById('otpState1').style.display='none';
     document.getElementById('otpState2').style.display='block';
   }catch(e){
@@ -2988,8 +3010,7 @@ async function submitMissedDay(){
   const cfg=getCfg();
   if(!cfg.url){toast('⚠️ Google Sheets не налаштовано','err');return;}
   try{
-    await fetch(cfg.url,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain'},
-      body:JSON.stringify({type:'requestMissedDay',employee:user,missedDate:date,reason})});
+    await postGAS({type:'requestMissedDay',employee:user,missedDate:date,reason});
     closeMissedDayForm();
     toast('✅ Запит надіслано адміністратору','ok');
   }catch(e){toast('❌ '+e.message,'err');}
@@ -3072,8 +3093,7 @@ async function adminApproveReq(id,btn){
   const cfg=getCfg();if(!cfg.url)return;
   btn.innerHTML='<span class="spin"></span>';btn.disabled=true;
   try{
-    await fetch(cfg.url,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain'},
-      body:JSON.stringify({type:'approveRequest',id,tabSheet:cfg.tab})});
+    await postGAS({type:'approveRequest',id,tabSheet:cfg.tab});
     toast('✅ Запит схвалено','ok');
     loadAdminRequests();
   }catch(e){toast('❌ '+e.message,'err');btn.innerHTML='✅ Схвалити';btn.disabled=false;}
@@ -3082,8 +3102,7 @@ async function adminRejectReq(id,btn){
   const cfg=getCfg();if(!cfg.url)return;
   btn.innerHTML='<span class="spin"></span>';btn.disabled=true;
   try{
-    await fetch(cfg.url,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain'},
-      body:JSON.stringify({type:'rejectRequest',id,tabSheet:cfg.tab})});
+    await postGAS({type:'rejectRequest',id,tabSheet:cfg.tab});
     toast('❌ Запит відхилено','warn');
     loadAdminRequests();
   }catch(e){toast('❌ '+e.message,'err');btn.innerHTML='❌ Відхилити';btn.disabled=false;}

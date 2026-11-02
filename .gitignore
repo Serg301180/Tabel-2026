@@ -7,3 +7,6 @@ apps_script.gs
 # Python cache
 __pycache__/
 *.pyc
+
+# Архів старих знімків релізів (лише локально; історія — у git)
+_archive/
