@@ -10,6 +10,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 - Edit `template_v2.html` (the single-file vanilla HTML/CSS/JS app; Ukrainian UI). Never hand-edit `index.html`, because it is generated.
 - Build: `python generate_html.py` injects `tabel_data.json` into the `%%EMPLOYEES%%` / `%%SECTIONS%%` / `%%OBJECTS%%` placeholders and writes `index.html`, which is served by GitHub Pages and committed. Re-run it after every template or data change.
+- `generate_html.py` also stamps `%%BUILD%%` (YYMMDDHHMM) into `APP_BUILD`. Open pages poll the live `index.html` and show the "Вийшла нова версія" bar when the deployed build is newer, so always regenerate before publishing.
 - `Табель_2026.html` is the legacy output name. Don't update it.
 - The `v*/`, `финал*/` and `github_upload/` folders are frozen release snapshots. Don't edit them, and only create a new one when the user asks. The format is `vYYMMDDHHMM/` with copies of `index.html`, `template_v2.html`, `apps_script.gs`, `generate_html.py`, `tabel_data.json` plus a `CHANGELOG.md`.
 

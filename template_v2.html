@@ -169,6 +169,12 @@ input[type="date"],input[type="time"]{color-scheme:dark}
 #unclosedStrip.closing{background:#4338ca;color:#fff;cursor:default}
 #unclosedStrip u{text-underline-offset:2px}
 #unclosedStrip .hint{font-weight:400;opacity:.85}
+/* ── Смуга «Вийшла нова версія» (знизу) ── */
+#updBar{display:none;position:fixed;left:0;right:0;bottom:0;z-index:9998;background:#4338ca;color:#fff;font-size:.8rem;font-weight:600;line-height:1.4;text-align:center;padding:10px 16px;padding-bottom:calc(10px + env(safe-area-inset-bottom, 0px));box-shadow:0 -2px 12px rgba(0,0,0,.45);cursor:pointer}
+#updBar.show{display:block}
+#updBar u{text-underline-offset:2px}
+body.upd-on{padding-bottom:56px}
+body.upd-on .toast{bottom:70px}
 /* ── Календар у кабінеті ── */
 .cal-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px}
 .cal-dow{font-size:.62rem;color:var(--tx3);text-align:center;padding:2px 0;text-transform:uppercase;letter-spacing:.5px}
@@ -739,6 +745,7 @@ input[type="date"],input[type="time"]{color-scheme:dark}
 
 <!-- ═══ UNCLOSED DAY BLOCKING MODAL ═══ -->
 <div id="unclosedStrip" onclick="openCloseDay()"></div>
+<div id="updBar" onclick="applyUpdate()">🔄 Вийшла нова версія табеля · <u>Натисніть, щоб оновити</u></div>
 <div id="unclosedOv" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:970;align-items:center;justify-content:center;padding:20px">
 <div style="background:var(--s1);border:2px solid var(--warn);border-radius:14px;width:100%;max-width:420px;padding:28px 22px;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,.8)">
   <div style="font-size:2.4rem;margin-bottom:8px">⚠️</div>
@@ -947,6 +954,36 @@ input[type="date"],input[type="time"]{color-scheme:dark}
 <script>
 // ═══ ADMIN ACCESS ═══
 const ADMIN_USER = 'Любченко С.';
+
+// ═══ ПЕРЕВІРКА НОВОЇ ВЕРСІЇ ФОРМИ ═══
+// generate_html.py підставляє номер збірки (YYMMDDHHMM). Форма періодично завантажує свіжий
+// index.html з сайту (в обхід кешу) і порівнює номер. Новіший → смуга «Вийшла нова версія».
+const APP_BUILD='%%BUILD%%';
+let _updLastCheck=0;
+async function checkForUpdate(){
+  if(location.protocol==='file:'||!/^\d+$/.test(APP_BUILD))return; // локальний файл / не зібрано
+  if(Date.now()-_updLastCheck<5*60000)return;                       // не частіше ніж раз на 5 хв
+  _updLastCheck=Date.now();
+  try{
+    const r=await fetch(location.pathname+'?_v='+Date.now(),{cache:'no-store'});
+    if(!r.ok)return;
+    const m=(await r.text()).match(/const APP_BUILD='(\d+)'/);
+    if(m&&m[1]>APP_BUILD){
+      document.getElementById('updBar').classList.add('show');
+      document.body.classList.add('upd-on');
+    }
+  }catch(e){}
+}
+function applyUpdate(){
+  // На кроках з незбереженим введенням (обід, проекти, плани) попереджаємо: введене пропаде
+  const act=document.querySelector('.step.active');
+  if(act&&['step5','step6','step7'].includes(act.id)
+     &&!confirm('Оновити зараз? Дані, які ви вводите на цьому кроці, не збережуться.\n(Прихід уже збережено.)'))return;
+  location.reload();
+}
+setTimeout(checkForUpdate,5000);
+setInterval(checkForUpdate,30*60000);
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')checkForUpdate();});
 
 // ═══ DATA ═══
 const BUNDLED_EMPS = %%EMPLOYEES%%;
