@@ -629,6 +629,13 @@ body.upd-on .toast{bottom:70px}
   </div>
 
   <div class="adm-sec">
+    <div class="adm-sec-t">🧾 Об'єкти бухгалтерії (окремо від реєстру)</div>
+    <div style="font-size:.7rem;color:var(--tx3);margin-bottom:8px;line-height:1.5">По одному на рядок у форматі <b style="color:var(--tx2)">шифр | назва</b>. Показуються всім у пошуку об'єкта разом із реєстром. Зберігаються на сервері, реєстр у таблиці не змінюється.</div>
+    <textarea id="cfgExtra" rows="5" style="width:100%;font-family:monospace;font-size:.76rem;line-height:1.5" placeholder="0000-БУХ | Бухгалтерія (облік, каса, банк)"></textarea>
+    <button class="btn btn-s" id="cfgExtraBtn" style="font-size:.8rem;padding:6px 13px;margin-top:8px" onclick="saveExtraObjects()">💾 Зберегти перелік</button>
+  </div>
+
+  <div class="adm-sec">
     <div class="adm-sec-t">🔑 Паролі співробітників</div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px">
       <div class="f" style="margin:0"><label>Співробітник</label><select id="pwdE"><option value="">— Виберіть —</option></select></div>
@@ -991,6 +998,7 @@ const WHATS_NEW={
     ['💾','«✅ Відправлено» з\'являється, лише коли таблиця підтвердила запис. Немає інтернету — дані збережуться на телефоні й дошлються самі. <b>Відкрийте табель на цьому ж телефоні</b>, коли з\'явиться зв\'язок.'],
     ['🟡','Незакритий день більше не блокує роботу: зверху жовта смуга, закрити його можна з кодом адміністратора. Не закрито 3 дні — порушення.'],
     ['📌','<b>Об\'єкт вибирайте зі списку</b>, що випадає (натисніть на варіант). Якщо об\'єкта немає — натисніть «Об\'єкта немає в списку?» і впишіть шифр і назву: адміністратор додасть його.'],
+    ['🧾','Бухгалтерія: у пошуку об\'єкта введіть «бух», «звіт» або «зп» — для цих робіт є окремі пункти.'],
     ['🔎','Назви об\'єктів показуються повністю.'],
     ['🔄','Вийшла нова версія — знизу синя смуга, натисніть її.']
   ],
@@ -998,6 +1006,7 @@ const WHATS_NEW={
     ['👤','У «Статистиці» — вибір співробітника: його календар, години й об\'єкти за весь час, включно з колишніми.'],
     ['📡','Моніторинг: період «за весь час» і години кожного співробітника на кожен об\'єкт.'],
     ['⚠️','Моніторинг: блок «Записи поза реєстром» — позначте записи, виберіть об\'єкт із реєстру й натисніть «Замінити». Про нові такі записи прийде повідомлення в Telegram.'],
+    ['🧾','⚙ Налаштування → «Об\'єкти бухгалтерії»: окремий перелік (шифр | назва), реєстр у таблиці не змінюється.'],
     ['✅','Усі дії адміна (ручний прихід, IP, запити) показують помилку, якщо сервер не зберіг.']
   ]
 };
@@ -1071,14 +1080,20 @@ const BUNDLED_OBJS = %%OBJECTS%%;
 const BUNDLED_WTS  = %%WORKTYPES%%;
 const MONTHS=['СІЧЕНЬ','ЛЮТИЙ','БЕРЕЗЕНЬ','КВІТЕНЬ','ТРАВЕНЬ','ЧЕРВЕНЬ','ЛИПЕНЬ','СЕРПЕНЬ','ВЕРЕСЕНЬ','ЖОВТЕНЬ','ЛИСТОПАД','ГРУДЕНЬ'];
 
-let LIVE_EMPS=null, LIVE_OBJS=null, LIVE_SECS=null, LIVE_WTS=null;
+let LIVE_EMPS=null, LIVE_OBJS=null, LIVE_SECS=null, LIVE_WTS=null, LIVE_EXTRA=null;
+// Об'єкти бухгалтерії — окремо від реєстру; перелік живе на сервері (⚙ Налаштування адміністратора)
+const BUNDLED_EXTRA=[{code:'0000-БУХ',name:'Бухгалтерія (облік, каса, банк)'},{code:'0000-ЗВІТ',name:'Звітність (місячна, квартальна)'},{code:'0000-ЗП',name:'Нарахування заробітної плати'}];
+function extras(){return LIVE_EXTRA||BUNDLED_EXTRA}
 function emps(){return LIVE_EMPS||BUNDLED_EMPS}
-function objs(){return LIVE_OBJS||BUNDLED_OBJS}
+function objs(){
+  const reg=LIVE_OBJS||BUNDLED_OBJS,codes=new Set(reg.map(o=>o.code));
+  return reg.concat(extras().filter(o=>!codes.has(o.code)));
+}
 function secs(){return LIVE_SECS||BUNDLED_SECS}
 function wts(){return LIVE_WTS||BUNDLED_WTS}
 
 // ═══ CONFIG ═══
-const K={url:'cfg_url',tab:'cfg_tab',es:'cfg_es',ec:'cfg_ec',os:'cfg_os',oc:'cfg_oc',sync:'cfg_sync',ce:'cfg_ce',co:'cfg_co',cs:'cfg_cs',secS:'cfg_secS',secC:'cfg_secC',wtS:'cfg_wtS',wtC:'cfg_wtC',cw:'cfg_cw'};
+const K={url:'cfg_url',tab:'cfg_tab',es:'cfg_es',ec:'cfg_ec',os:'cfg_os',oc:'cfg_oc',sync:'cfg_sync',ce:'cfg_ce',co:'cfg_co',cs:'cfg_cs',secS:'cfg_secS',secC:'cfg_secC',wtS:'cfg_wtS',wtC:'cfg_wtC',cw:'cfg_cw',cx:'cfg_cx'};
 const DEFAULT_URL='https://script.google.com/macros/s/AKfycbxkLzMWv_vCBzkfZguNGYhaTwNcUW9vNuHgd-4K0hhADOsn2ha2NKA3_SpdShJ4RfNZhw/exec';
 function getCfg(){return{url:ls(K.url)||DEFAULT_URL,tab:ls(K.tab)||'ТАБЕЛЬ',es:ls(K.es)||'СПРАВОЧНИК',ec:ls(K.ec)||'A',os:ls(K.os)||'СПРАВОЧНИК',oc:ls(K.oc)||'C',secS:ls(K.secS)||'СПРАВОЧНИК',secC:ls(K.secC)||'B',wtS:ls(K.wtS)||'СПРАВОЧНИК',wtC:ls(K.wtC)||'D'}}
 
@@ -1124,6 +1139,7 @@ document.addEventListener('DOMContentLoaded', async ()=>{
     if(co)LIVE_OBJS=JSON.parse(co);
     if(cs)LIVE_SECS=JSON.parse(cs);
     if(cw)LIVE_WTS=JSON.parse(cw);
+    const cx=ls(K.cx);if(cx)LIVE_EXTRA=JSON.parse(cx);
   }catch(e){}
   fillSel('s1e',true); fillSel('pwdE',false);
   updConnDot();
@@ -1177,6 +1193,7 @@ async function loadFromSheets(showMsg=true){
     const d=await r.json();
     if(!d.ok)throw new Error(d.error||'Помилка');
     LIVE_EMPS=d.employees||[];LIVE_OBJS=d.objects||[];LIVE_SECS=d.sections||BUNDLED_SECS;LIVE_WTS=d.worktypes||[];
+    if(Array.isArray(d.extraObjects)){LIVE_EXTRA=d.extraObjects;ls_s(K.cx,JSON.stringify(LIVE_EXTRA));}
     ls_s(K.ce,JSON.stringify(LIVE_EMPS));ls_s(K.co,JSON.stringify(LIVE_OBJS));ls_s(K.cs,JSON.stringify(LIVE_SECS));ls_s(K.cw,JSON.stringify(LIVE_WTS));ls_s(K.sync,new Date().toISOString());
     fillSel('s1e',true);fillSel('pwdE',false);
     updConnDot();updAdmStatus();
@@ -3218,10 +3235,27 @@ function openFillMissed(reqId, date){
 }
 
 // ═══ ADMIN SETTINGS (відокремлено від userMenu) ═══
+async function saveExtraObjects(){
+  const lines=document.getElementById('cfgExtra').value.split('\n').map(s=>s.trim()).filter(Boolean);
+  const items=[],bad=[],seen=new Set();
+  lines.forEach(l=>{const i=l.indexOf('|');const code=(i>=0?l.slice(0,i):l).trim(),name=(i>=0?l.slice(i+1):'').trim();
+    if(!code){bad.push(l);return;} if(seen.has(code))return; seen.add(code);items.push({code,name});});
+  if(bad.length){toast('⚠️ Рядок без шифру: '+bad[0],'err');return;}
+  const reg=new Set((LIVE_OBJS||BUNDLED_OBJS).map(o=>o.code)),clash=items.filter(o=>reg.has(o.code));
+  if(clash.length){toast('⚠️ Шифр уже є в реєстрі: '+clash[0].code,'err');return;}
+  const btn=document.getElementById('cfgExtraBtn');btn.disabled=true;btn.innerHTML='<span class="spin"></span>';
+  try{
+    const d=await postGAS({type:'saveExtraObjects',items});
+    LIVE_EXTRA=items;ls_s(K.cx,JSON.stringify(items));
+    toast('✅ Збережено об\'єктів бухгалтерії: '+d.count,'ok');
+  }catch(e){toast('❌ Не збережено: '+(e.server&&String(e.server.error||'').startsWith('Невідомий тип')?'оновіть скрипт в Apps Script':e.message),'err');}
+  btn.disabled=false;btn.innerHTML='💾 Зберегти перелік';
+}
 function openAdminSettings(){
   if(user!==ADMIN_USER){toast('⛔ Тільки для адміністратора','err');return;}
   const c=getCfg();
   document.getElementById('cfgUrl').value=c.url;
+  document.getElementById('cfgExtra').value=extras().map(o=>o.code+(o.name?' | '+o.name:'')).join('\n');
   document.getElementById('cfgTabSheet').value=c.tab;
   document.getElementById('cfgES').value=c.es;
   document.getElementById('cfgEC').value=c.ec.toUpperCase();
