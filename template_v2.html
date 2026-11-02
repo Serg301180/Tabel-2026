@@ -163,6 +163,37 @@ input[type="date"],input[type="time"]{color-scheme:dark}
 .adm-sub{font-size:.74rem;color:var(--tx3);margin-bottom:20px;line-height:1.5}
 .adm-sec{background:var(--s2);border:1px solid var(--bd);border-radius:8px;padding:15px;margin-bottom:12px}
 .adm-sec-t{font-size:.7rem;font-weight:700;color:var(--ach);text-transform:uppercase;letter-spacing:.7px;margin-bottom:11px}
+/* ── Жовта смуга: незакритий попередній день ── */
+#unclosedStrip{display:none;position:fixed;left:0;right:0;top:0;z-index:960;background:#f59e0b;color:#1c1300;font-weight:600;font-size:.74rem;line-height:1.35;padding:5px 16px;padding-top:calc(5px + env(safe-area-inset-top, 0px));box-shadow:0 2px 10px rgba(0,0,0,.4);cursor:pointer;text-align:center}
+#unclosedStrip.show{display:block}
+#unclosedStrip.closing{background:#4338ca;color:#fff;cursor:default}
+#unclosedStrip u{text-underline-offset:2px}
+#unclosedStrip .hint{font-weight:400;opacity:.85}
+/* ── Календар у кабінеті ── */
+.cal-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px}
+.cal-dow{font-size:.62rem;color:var(--tx3);text-align:center;padding:2px 0;text-transform:uppercase;letter-spacing:.5px}
+.cal-d{min-width:0;overflow:hidden;min-height:46px;border-radius:7px;border:1px solid var(--bd);background:var(--s1);padding:4px 5px;font-size:.76rem;color:var(--tx2);display:flex;flex-direction:column;justify-content:space-between;user-select:none}
+.cal-d.empty{border:none;background:none}
+.cal-d.we{background:transparent;color:var(--tx3)}
+.cal-d.ok{background:rgba(16,185,129,.18);border-color:rgba(16,185,129,.55);color:var(--tx)}
+.cal-d.miss{background:rgba(239,68,68,.16);border-color:rgba(239,68,68,.5);color:var(--tx)}
+.cal-d.open{background:rgba(245,158,11,.2);border-color:rgba(245,158,11,.65);color:var(--tx)}
+.cal-d.today{box-shadow:0 0 0 2px var(--ac)}
+.cal-d[data-d]{cursor:pointer}
+.cal-d[data-d]:hover{filter:brightness(1.25)}
+.cal-h{font-size:.6rem;color:var(--tx2);text-align:right;white-space:nowrap;overflow:hidden}
+.cal-leg{display:flex;flex-wrap:wrap;gap:12px;margin-top:10px;font-size:.68rem;color:var(--tx2)}
+.cal-leg i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+#calTip{position:fixed;z-index:10000;max-width:290px;background:var(--s3);border:1px solid var(--bd2);border-radius:8px;padding:9px 11px;font-size:.74rem;color:var(--tx);line-height:1.6;box-shadow:0 8px 24px rgba(0,0,0,.55);pointer-events:none;display:none}
+.st-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:12px}
+.st-prog{height:8px;background:var(--s3);border-radius:4px;overflow:hidden;margin:6px 0 4px}
+.st-prog>div{height:100%;border-radius:4px}
+.st-obj{border-bottom:1px solid var(--bd);padding:7px 0}
+.st-obj summary{cursor:pointer;list-style:none;display:flex;justify-content:space-between;gap:10px;align-items:baseline}
+.st-obj summary::-webkit-details-marker{display:none}
+.st-obj summary::before{content:'▸';color:var(--tx3);margin-right:4px}
+.st-obj[open] summary::before{content:'▾'}
+.st-sub{font-size:.72rem;color:var(--tx2);padding:4px 0 2px 16px;display:flex;justify-content:space-between;gap:10px}
 .sbar{display:flex;align-items:center;gap:9px;background:var(--s3);border:1px solid var(--bd);border-radius:7px;padding:9px 13px;font-size:.77rem;color:var(--tx2);margin-bottom:12px}
 .sbar .dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
 .dot-ok{background:var(--ok);box-shadow:0 0 5px var(--ok)}.dot-err{background:var(--err)}.dot-none{background:var(--tx3)}
@@ -205,11 +236,16 @@ input[type="date"],input[type="time"]{color-scheme:dark}
   .loc-grid{grid-template-columns:1fr}
   .lunch-opts{grid-template-columns:repeat(2,1fr)}
   .adm-acts{flex-direction:column}
+  .adm-box{padding:16px 12px}
+  .cal-grid{gap:3px}
+  .cal-d{min-height:40px;padding:3px}
+  .cal-h{font-size:.54rem}
+  .st-cards{grid-template-columns:repeat(2,1fr)}
 }
 </style>
 </head>
 <body>
-<div id="appVersion">v26.05.10</div>
+<div id="appVersion">v26.11.02</div>
 <div class="app">
 
 <!-- ═══ HEADER ═══ -->
@@ -477,9 +513,14 @@ input[type="date"],input[type="time"]{color-scheme:dark}
 <!-- ═══ STEP 8 — SUCCESS ═══ -->
 <div class="step" id="step8">
   <div class="card">
-    <div class="succ-ic">✅</div>
-    <div class="succ-title">Дані відправлено!</div>
+    <div class="succ-ic" id="succIc">✅</div>
+    <div class="succ-title" id="succTitle">Дані відправлено!</div>
     <div class="succ-sub">Табель за <span id="sd"></span> збережено</div>
+    <div id="sendWarn" style="display:none;background:rgba(239,68,68,.08);border:1.5px solid rgba(239,68,68,.4);border-radius:9px;padding:12px 15px;margin-bottom:10px;text-align:center">
+      <div style="font-size:.8rem;color:var(--err);font-weight:700;margin-bottom:4px">Табель ще НЕ потрапив у Google Sheets</div>
+      <div style="font-size:.74rem;color:var(--tx2);margin-bottom:8px">Дані збережено на цьому пристрої й будуть дослані автоматично, коли з'явиться зв'язок. Не очищайте браузер і відкрийте форму пізніше на цьому ж пристрої.</div>
+      <button class="btn btn-s" style="font-size:.78rem;padding:6px 14px" onclick="retrySendNow(this)">🔁 Повторити зараз</button>
+    </div>
     <div id="ssum"></div>
     <div id="homeWorkInfo" style="display:none;background:rgba(16,185,129,.08);border:1.5px solid rgba(16,185,129,.3);border-radius:9px;padding:12px 15px;margin-bottom:10px;text-align:center">
       <div style="font-size:.75rem;color:var(--tx2);margin-bottom:4px">🏠 Робота з дому (за потреби)</div>
@@ -697,16 +738,18 @@ input[type="date"],input[type="time"]{color-scheme:dark}
 </div>
 
 <!-- ═══ UNCLOSED DAY BLOCKING MODAL ═══ -->
+<div id="unclosedStrip" onclick="openCloseDay()"></div>
 <div id="unclosedOv" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:970;align-items:center;justify-content:center;padding:20px">
 <div style="background:var(--s1);border:2px solid var(--warn);border-radius:14px;width:100%;max-width:420px;padding:28px 22px;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,.8)">
   <div style="font-size:2.4rem;margin-bottom:8px">⚠️</div>
   <div style="font-size:1rem;font-weight:700;color:var(--warn);margin-bottom:6px">У вас є незакритий день</div>
   <div id="unclosedInfo" style="background:var(--s2);border-radius:8px;padding:12px 14px;margin:12px 0;font-size:.82rem;color:var(--tx2);line-height:1.9;text-align:left"></div>
-  <div style="font-size:.75rem;color:var(--tx3);margin-bottom:16px;line-height:1.5">Для продовження необхідно закрити цей день.<br>Запис буде позначено як <b style="color:var(--warn)">пізнє внесення</b>.<br>Потрібен OTP-код підтвердження від адміністратора.</div>
+  <div style="font-size:.75rem;color:var(--tx3);margin-bottom:16px;line-height:1.5">Закрити цей день можна з кодом підтвердження від адміністратора.<br>Запис буде позначено як <b style="color:var(--warn)">пізнє внесення</b>.<br>Поки день не закрито, він підсвічується жовтим у календарі.</div>
 
   <!-- Стан 1: кнопка запиту коду -->
   <div id="otpState1">
     <button class="btn btn-p" style="width:100%" onclick="requestOTP()">🔑 Запросити код підтвердження</button>
+    <button class="btn btn-s" style="width:100%;margin-top:8px" onclick="closeUnclosedLater()">⏭ Пізніше — продовжити роботу</button>
     <div id="otpReqMsg" style="margin-top:10px;font-size:.75rem;min-height:20px"></div>
   </div>
 
@@ -849,14 +892,23 @@ input[type="date"],input[type="time"]{color-scheme:dark}
       <button class="btn btn-s" style="padding:6px 12px;font-size:.8rem" onclick="closeStats()">✕ Закрити</button>
     </div>
   </div>
+  <div id="statsCal"></div>
   <div id="statsSummary"></div>
-  <div id="statsChartsGrid" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+  <div id="statsChartsGrid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;margin-bottom:12px">
     <div id="statsLocChart"></div>
     <div id="statsBarChart"></div>
   </div>
   <div id="statsProjects"></div>
+  <div class="adm-sec">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
+      <div class="adm-sec-t" style="margin:0">🏗 Мої об'єкти за весь час</div>
+      <button class="btn btn-s" style="padding:5px 12px;font-size:.76rem" onclick="loadMyObjects(this)">Показати</button>
+    </div>
+    <div id="statsAllObj"></div>
+  </div>
 </div>
 </div>
+<div id="calTip"></div>
 
 <!-- ═══ MONITORING OVERLAY ═══ -->
 <div class="adm-ov" id="monOv">
@@ -875,9 +927,14 @@ input[type="date"],input[type="time"]{color-scheme:dark}
     <div id="monOnline" style="margin-top:6px"></div>
   </div>
   <!-- Трудовитрати -->
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:10px" id="monChartsGrid">
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;margin-bottom:10px" id="monChartsGrid">
     <div id="monProjChart"></div>
     <div id="monLocChart"></div>
+  </div>
+  <!-- Об'єкти: години по кожному співробітнику -->
+  <div class="adm-sec">
+    <div class="adm-sec-t">📋 Об'єкти — години по співробітниках</div>
+    <div id="monProjTable"></div>
   </div>
   <!-- IP-контроль -->
   <div class="adm-sec">
@@ -906,7 +963,7 @@ function wts(){return LIVE_WTS||BUNDLED_WTS}
 
 // ═══ CONFIG ═══
 const K={url:'cfg_url',tab:'cfg_tab',es:'cfg_es',ec:'cfg_ec',os:'cfg_os',oc:'cfg_oc',sync:'cfg_sync',ce:'cfg_ce',co:'cfg_co',cs:'cfg_cs',secS:'cfg_secS',secC:'cfg_secC',wtS:'cfg_wtS',wtC:'cfg_wtC',cw:'cfg_cw'};
-const DEFAULT_URL='https://script.google.com/macros/s/AKfycbxIaXLfEZUtfvsGOjRKMziAGHy9BWmfuD2lfg6wkXDmvUf1-PY7VO4AG8MiBcXmt1Ly/exec';
+const DEFAULT_URL='https://script.google.com/macros/s/AKfycbxkLzMWv_vCBzkfZguNGYhaTwNcUW9vNuHgd-4K0hhADOsn2ha2NKA3_SpdShJ4RfNZhw/exec';
 function getCfg(){return{url:ls(K.url)||DEFAULT_URL,tab:ls(K.tab)||'ТАБЕЛЬ',es:ls(K.es)||'СПРАВОЧНИК',ec:ls(K.ec)||'A',os:ls(K.os)||'СПРАВОЧНИК',oc:ls(K.oc)||'C',secS:ls(K.secS)||'СПРАВОЧНИК',secC:ls(K.secC)||'B',wtS:ls(K.wtS)||'СПРАВОЧНИК',wtC:ls(K.wtC)||'D'}}
 
 // ═══ STATE ═══
@@ -955,6 +1012,8 @@ document.addEventListener('DOMContentLoaded', async ()=>{
   fillSel('s1e',true); fillSel('pwdE',false);
   updConnDot();
   document.getElementById('s1p').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
+  // Досилаємо записи, які не дійшли минулого разу
+  setTimeout(()=>flushOutbox(),1500);
 
   // Паралельно: серверний час + дані з Sheets (потрібні до перевірки сесії)
   const url=getCfg().url;
@@ -977,31 +1036,10 @@ document.addEventListener('DOMContentLoaded', async ()=>{
       toast('⏩ Прихід '+_sa.arrival+' вже зафіксовано. Вкажіть час відходу.','ok');
       goStep(4);
     } else {
-      // Перевіряємо незакритий попередній день (захист від обходу через F5)
-      const _prevStored=sessionStorage.getItem('tabel_prev');
-      if(_prevStored){
-        try{
-          const _pd=JSON.parse(_prevStored);
-          _prevSessionData=_pd;_isLateEntry=true;
-          showUnclosedModal(_pd);
-        }catch(e){sessionStorage.removeItem('tabel_prev');goStep(2);}
-      } else {
-        const _cfg2=getCfg();
-        if(_cfg2.url){
-          try{
-            const _td2=_srvTime?new Date(_srvTime.epoch+(Date.now()-_srvTime.fetchedAt)):new Date();
-            const _today2=_td2.getFullYear()+'-'+String(_td2.getMonth()+1).padStart(2,'0')+'-'+String(_td2.getDate()).padStart(2,'0');
-            const _r2=await fetch(_cfg2.url+'?action=checkPrevSession&employee='+encodeURIComponent(sv)+'&today='+encodeURIComponent(_today2)+'&tabSheet='+encodeURIComponent(_cfg2.tab),{cache:'no-store'});
-            const _d2=await _r2.json();
-            if(_d2.ok&&_d2.hasOpenSession){
-              _prevSessionData=_d2;_isLateEntry=true;
-              sessionStorage.setItem('tabel_prev',JSON.stringify(_d2));
-              showUnclosedModal(_d2);
-            } else {goStep(2);}
-          }catch(e){goStep(2);}
-        } else {goStep(2);}
-      }
+      // Незакриті попередні дні більше не блокують — лише жовта смуга-нагадування
+      goStep(2);
     }
+    refreshUnclosed();
   }
 
   startLiveTimer();
@@ -1360,6 +1398,7 @@ async function doLogin(){
   if(!p){toast('⚠️ Введіть пароль','err');return;}
   if(p!==getPwd(n)){toast('❌ Невірний пароль','err');document.getElementById('s1p').select();return;}
   user=n;sessionStorage.setItem('tabel_u',n);setBadge(n);
+  refreshUnclosed(); // у фоні: незакриті попередні дні → жовта смуга
 
   // Пріоритет 1: localStorage (швидкий шлях)
   const arr=getArrState();
@@ -1400,21 +1439,7 @@ async function doLogin(){
       }
     }catch(err){console.warn('checkSession error:',err);}
 
-    // Пріоритет 3: перевірка незакритих попередніх днів
-    try{
-      const r2=await fetch(cfg.url+'?action=checkPrevSession'
-        +'&employee='+encodeURIComponent(n)
-        +'&today='+encodeURIComponent(today)
-        +'&tabSheet='+encodeURIComponent(cfg.tab),{cache:'no-store'});
-      const d2=await r2.json();
-      if(d2.ok&&d2.hasOpenSession){
-        _prevSessionData=d2;_isLateEntry=true;
-        sessionStorage.setItem('tabel_prev',JSON.stringify(d2));
-        btn.innerHTML='Увійти →';btn.disabled=false;
-        showUnclosedModal(d2);
-        return;
-      }
-    }catch(err2){console.warn('checkPrevSession error:',err2);}
+    // Незакриті попередні дні не блокують вхід — їх перевіряє refreshUnclosed()
     btn.innerHTML='Увійти →';btn.disabled=false;
   }
 
@@ -1424,7 +1449,7 @@ async function doLogin(){
 function logout(){
   if(!confirm('Вийти?'))return;
   user=null;userLoc=null;_homeWorkMode=false;_prevSessionData=null;_isLateEntry=false;
-  _missedDayMode=false;_missedDayReqId=null;
+  _missedDayMode=false;_missedDayReqId=null;_unclosedDays=[];
   document.getElementById('missedDayBanner').style.display='none';
   try{localStorage.removeItem('tabel_hm');}catch(e){}
   sessionStorage.removeItem('tabel_u');
@@ -1479,7 +1504,79 @@ function goStep(n){
     }
   }
   if(n===7)prepTomorrow();
+  _updUnclosedStrip();
   window.scrollTo({top:0,behavior:'smooth'});
+}
+
+// ═══ НЕЗАКРИТІ ПОПЕРЕДНІ ДНІ ═══
+// Не блокують новий день. Поки є незакриті дні — зверху постійна тонка жовта смуга з підказкою;
+// натискання → закриття найстаршого дня з OTP-кодом адміністратора (як і раніше).
+// Незакритий день стає порушенням, якщо не закрито за UNCLOSED_GRACE_DAYS днів.
+const UNCLOSED_GRACE_DAYS=3;
+let _unclosedDays=[];   // [{date,month,arrival,location,ip}] від найстаршого
+function _daysSince(ds,today){return Math.round((Date.parse((today||_todayStr())+'T12:00')-Date.parse(ds+'T12:00'))/86400000);}
+function _addDays(ds,n){const d=new Date(ds+'T12:00');d.setDate(d.getDate()+n);return _localDateStr(d);}
+async function refreshUnclosed(){
+  const cfg=getCfg();if(!cfg.url||!user)return;
+  try{
+    const r=await fetch(cfg.url+'?action=checkPrevSession&employee='+encodeURIComponent(user)
+      +'&today='+encodeURIComponent(_todayStr())+'&tabSheet='+encodeURIComponent(cfg.tab),{cache:'no-store'});
+    const d=await r.json();
+    if(!d.ok)return;
+    // Стара версія скрипта повертає лише один день без list
+    _unclosedDays=d.list||(d.hasOpenSession?[{date:d.date,month:d.month,arrival:d.arrival,location:d.location,ip:d.ip}]:[]);
+    _updUnclosedStrip();
+  }catch(e){console.warn('checkPrevSession error:',e);}
+}
+function _ddmm(ds){return ds.slice(8,10)+'.'+ds.slice(5,7);}
+function _updUnclosedStrip(){
+  const el=document.getElementById('unclosedStrip');if(!el)return;
+  const u=_unclosedDays;
+  const ver=document.getElementById('appVersion');
+  if(!user||(!u.length&&!_isLateEntry)){el.classList.remove('show','closing');document.body.style.paddingTop='';if(ver)ver.style.top='';return;}
+  if(_isLateEntry&&_prevSessionData){
+    // Саме зараз закриваємо старий день
+    el.className='show closing';
+    el.innerHTML='📝 Закриваєте день '+_ddmm(_prevSessionData.date)+' (пізнє внесення) <span class="hint">· після відправки можна продовжити сьогоднішню роботу</span>';
+  }else{
+    const old=u[0],age=_daysSince(old.date),deadline=_addDays(old.date,UNCLOSED_GRACE_DAYS);
+    el.className='show';
+    el.innerHTML='⚠️ '+(u.length===1
+        ?'Не закрито '+_ddmm(old.date)+' (прихід '+esc(old.arrival)+')'
+        :'Не закрито днів: '+u.length+' ('+u.map(x=>_ddmm(x.date)).join(', ')+')')
+      +' · <u>Натисніть, щоб закрити</u>'
+      +' <span class="hint">· потрібен код від адміністратора · '
+      +(age>=UNCLOSED_GRACE_DAYS?'<b>вже порушення</b>':'закрийте до '+_ddmm(deadline)+', інакше — порушення')
+      +'</span>';
+  }
+  // Смуга не повинна перекривати шапку
+  document.body.style.paddingTop=el.offsetHeight+'px';
+  if(ver)ver.style.top=(el.offsetHeight+4)+'px';
+}
+window.addEventListener('resize',()=>{if(_unclosedDays.length||_isLateEntry)_updUnclosedStrip();});
+function openCloseDay(){
+  if(_isLateEntry||!_unclosedDays.length)return;
+  // Не змішуємо з поточним днем: закривати старий можна до приходу або після завершення сьогоднішнього
+  const act=document.querySelector('.step.active');
+  if(getArrState()||_missedDayMode||(act&&['step4','step5','step6','step7'].includes(act.id))){
+    toast('⚠️ Спочатку завершіть сьогоднішній день, потім закрийте '+_ddmm(_unclosedDays[0].date),'warn');
+    return;
+  }
+  _prevSessionData={..._unclosedDays[0],employee:user};
+  _isLateEntry=true;
+  showUnclosedModal(_prevSessionData);
+}
+function closeUnclosedLater(){
+  document.getElementById('unclosedOv').style.display='none';
+  _prevSessionData=null;_isLateEntry=false;
+  _updUnclosedStrip();
+}
+// Скидання форми перед закриттям старого дня (щоб не потягнути проекти/обід сьогоднішнього)
+function _resetDayForm(){
+  pc=0;lunchMin=0;lunchShown=false;grossMinsState=0;
+  tomorrowPlan=null;tomorrowDesc='';
+  document.getElementById('plist').innerHTML='';
+  document.getElementById('s2l').value='';
 }
 
 // ═══ LOCATION STEP ═══
@@ -1909,6 +2006,77 @@ function clearArrState(){
   try{localStorage.removeItem('tabel_arr');}catch(e){}
 }
 
+// ═══ POST до GAS з перевіркою відповіді ═══
+// Без no-cors: читаємо JSON і вважаємо запис збереженим тільки при ok:true.
+// Помилка має .server — відповідь сервера (якщо вона була).
+async function postGAS(payload,timeoutMs){
+  const url=getCfg().url;
+  if(!url)throw new Error('Google Sheets не налаштовано');
+  const ctrl=new AbortController();
+  const t=setTimeout(()=>ctrl.abort(),timeoutMs||90000);
+  let r;
+  try{
+    r=await fetch(url,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body:JSON.stringify(payload),signal:ctrl.signal});
+  }catch(e){
+    throw new Error(e.name==='AbortError'?'сервер не відповідає':'немає з\'єднання з сервером');
+  }finally{clearTimeout(t);}
+  if(!r.ok)throw new Error('HTTP '+r.status);
+  let d;
+  try{d=await r.json();}catch(e){throw new Error('некоректна відповідь сервера');}
+  if(!d||d.ok!==true){
+    const err=new Error(d&&d.error==='busy'?'сервер зайнятий':(d&&d.error)||'помилка сервера');
+    err.server=d;throw err;
+  }
+  return d;
+}
+
+// ═══ Черга невідправлених записів (localStorage) ═══
+// Кожен запис має sid; сервер ігнорує повтор уже збереженого дня, тож досилати безпечно.
+const OUTBOX_KEY='tabel_outbox';
+function outboxGet(){try{return JSON.parse(ls(OUTBOX_KEY)||'[]')}catch(e){return[]}}
+function outboxSet(a){ls_s(OUTBOX_KEY,JSON.stringify(a));}
+function outboxPut(p){const a=outboxGet().filter(x=>x.sid!==p.sid);a.push(p);outboxSet(a);}
+function outboxDrop(sid){outboxSet(outboxGet().filter(x=>x.sid!==sid));}
+function newSid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,8);}
+let _flushing=false;
+async function flushOutbox(silent){
+  if(_flushing)return outboxGet().length;
+  const q=outboxGet();if(!q.length)return 0;
+  _flushing=true;let sent=0;
+  try{
+    for(const p of q){
+      try{await postGAS(p);outboxDrop(p.sid);sent++;}
+      catch(e){
+        // Прихід уже є на сервері — у черзі він більше не потрібен
+        if(p.type==='arrival'&&e.server&&e.server.error==='duplicate'){outboxDrop(p.sid);continue;}
+        break; // немає зв'язку / сервер зайнятий — спробуємо пізніше
+      }
+    }
+  }finally{_flushing=false;}
+  const left=outboxGet().length;
+  if(sent&&!silent)toast('✅ Дослано збережених записів: '+sent+(left?' · ще в черзі: '+left:''),'ok');
+  updSendWarn();
+  return left;
+}
+// Банер на кроці 8: показує, що табель ще не дійшов до таблиці
+function updSendWarn(){
+  const box=document.getElementById('sendWarn');if(!box)return;
+  const n=outboxGet().length;
+  box.style.display=n?'':'none';
+  const ic=document.getElementById('succIc'),ti=document.getElementById('succTitle');
+  if(ic)ic.textContent=n?'⚠️':'✅';
+  if(ti)ti.textContent=n?'Дані НЕ відправлено':'Дані відправлено!';
+}
+async function retrySendNow(btn){
+  if(btn){btn.disabled=true;btn.innerHTML='<span class="spin"></span> Відправляємо...';}
+  const left=await flushOutbox(true);
+  if(btn){btn.disabled=false;btn.innerHTML='🔁 Повторити зараз';}
+  toast(left?'❌ Не вдалося. Спробуємо ще раз автоматично.':'✅ Табель збережено в Google Sheets!',left?'err':'ok');
+}
+window.addEventListener('online',()=>flushOutbox());
+setInterval(()=>{if(outboxGet().length)flushOutbox(true);},120000);
+
 // ═══ SEND ARRIVAL (step 3 → immediate POST) ═══
 async function sendArrival(){
   const date=document.getElementById('s2d').value;
@@ -1965,15 +2133,22 @@ async function sendArrival(){
     // Немає дубля — відправляємо прихід
     saveArrState(date,month,arr);
     btn.innerHTML='<span class="spin"></span> Відправляємо...';
+    let arrSent=true;
     if(cfg.url){
-      try{
-        await fetch(cfg.url,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain'},
-          body:JSON.stringify({type:'arrival',tabSheet:cfg.tab,
-            employee:user,date,month,ip:userIP,location:userLoc||'',arrival:arr})});
-      }catch(e){console.warn('Arrival POST error:',e);}
+      const payload={type:'arrival',sid:newSid(),tabSheet:cfg.tab,
+        employee:user,date,month,ip:userIP,location:userLoc||'',arrival:arr};
+      try{await postGAS(payload);}
+      catch(e){
+        // 'duplicate' — прихід уже є на сервері, це не помилка
+        if(!(e.server&&e.server.error==='duplicate')){
+          console.warn('Arrival POST error:',e);
+          outboxPut(payload);arrSent=false;
+        }
+      }
     }
     btn.innerHTML='✅ Відмітити прихід →';btn.disabled=false;
-    toast('✅ Прихід '+arr+' зафіксовано!','ok');
+    if(arrSent)toast('✅ Прихід '+arr+' зафіксовано!','ok');
+    else toast('⚠️ Прихід збережено на пристрої, але НЕ відправлено. Дошлемо автоматично.','warn');
     goStep(4);
   });
 }
@@ -2053,24 +2228,27 @@ async function doFinalSubmit(){
   const isMissed=_missedDayMode;
   const missedReqId=_missedDayReqId;
   if(url){
+    const payload=isMissed
+      ?{type:'missedDayFull',sid:newSid(),rows,tabSheet:cfg2.tab,requestId:missedReqId}
+      :{type:'full',sid:newSid(),rows,tabSheet:cfg2.tab,isLate:_isLateEntry||false};
+    // Спершу досилаємо чергу (напр. прихід, що не дійшов), щоб рядок-заглушка вже був
+    await flushOutbox(true);
     try{
-      if(isMissed){
-        const payload={type:'missedDayFull',rows,tabSheet:cfg2.tab,requestId:missedReqId};
-        console.log('[missedDayFull] sending rows:',rows.length,'date:',rows[0]?.date,'emp:',rows[0]?.employee);
-        await fetch(url,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain'},
-          body:JSON.stringify(payload)});
-        toast('✅ Пропущений день збережено!','ok');
-      }else{
-        await fetch(url,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain'},
-          body:JSON.stringify({type:'full',rows,tabSheet:cfg2.tab,isLate:_isLateEntry||false})});
-        toast('✅ Відправлено до Google Sheets!','ok');
-      }
-    }catch(e){toast('💾 Збережено локально. Помилка з\'єднання: '+e.message,'warn');console.error('[doFinalSubmit]',e);}
+      await postGAS(payload);
+      toast(isMissed?'✅ Пропущений день збережено!':'✅ Відправлено до Google Sheets!','ok');
+    }catch(e){
+      console.error('[doFinalSubmit]',e);
+      outboxPut(payload);
+      toast('❌ НЕ відправлено ('+e.message+'). Збережено на пристрої — дошлемо автоматично.','err');
+    }
   }else{
     toast('💾 Збережено локально. Google Sheets не налаштовано.','warn');
   }
   btn.innerHTML='📤 Відправити';btn.disabled=false;
   const depTime=document.getElementById('s2l').value;
+  const wasLate=_isLateEntry;
+  // Закритий старий день прибираємо зі списку незакритих (смуга покаже решту)
+  if(wasLate&&rows[0])_unclosedDays=_unclosedDays.filter(x=>x.date!==rows[0].date);
   _prevSessionData=null;_isLateEntry=false;
   _missedDayMode=false;_missedDayReqId=null;
   document.getElementById('missedDayBanner').style.display='none';
@@ -2082,7 +2260,7 @@ async function doFinalSubmit(){
   // Показуємо кнопку "вдома" тільки якщо це була офісна сесія (не сама home-session)
   const homeBtn=document.getElementById('homeWorkBtn');
   const homeInfo=document.getElementById('homeWorkInfo');
-  if(wasHomeMode||userLoc==='Дома'){
+  if(wasHomeMode||wasLate||userLoc==='Дома'){
     if(homeBtn)homeBtn.style.display='none';
     if(homeInfo)homeInfo.style.display='none';
   } else {
@@ -2113,6 +2291,7 @@ function showSuccess(rows){
   });
   h+='</div>';
   document.getElementById('ssum').innerHTML=h;
+  updSendWarn();
 }
 
 
@@ -2137,7 +2316,7 @@ function openStats(){
   document.getElementById('statsOv').classList.add('open');
   loadMyStats();
 }
-function closeStats(){document.getElementById('statsOv').classList.remove('open');}
+function closeStats(){_hideCalTip();document.getElementById('statsOv').classList.remove('open');}
 document.getElementById('statsOv').addEventListener('click',e=>{if(e.target===e.currentTarget)closeStats();});
 
 async function loadMyStats(){
@@ -2147,7 +2326,7 @@ async function loadMyStats(){
   const cfg=getCfg();
   const msg=document.getElementById('statsLoadMsg');
   msg.textContent='⏳ Завантаження...';
-  ['statsSummary','statsLocChart','statsBarChart','statsProjects'].forEach(id=>{
+  ['statsCal','statsSummary','statsLocChart','statsBarChart','statsProjects'].forEach(id=>{
     document.getElementById(id).innerHTML='';
   });
   if(!cfg.url){msg.textContent='⚠️ Sheets не підключено';return;}
@@ -2160,26 +2339,149 @@ async function loadMyStats(){
   }catch(e){msg.textContent='❌ '+e.message;}
 }
 
-function renderMyStats(records){
-  // Групуємо по даті
-  const byDate={};
+// ═══ КАБІНЕТ: календар + розширена статистика ═══
+const LOC_IC={'Офіс':'🏢','Дома':'🏠','Командировка':'✈️'};
+const DAY_NORM=480; // 8 год
+function _todayStr(){return _localDateStr(_srvTime?new Date(_srvTime.epoch+(Date.now()-_srvTime.fetchedAt)):new Date());}
+function _isWeekday(ds){const g=new Date(ds+'T12:00').getDay();return g>=1&&g<=5;}
+function _monthDates(month){
+  const [y,m]=month.split('-').map(Number),n=new Date(y,m,0).getDate(),out=[];
+  for(let d=1;d<=n;d++)out.push(month+'-'+String(d).padStart(2,'0'));
+  return out;
+}
+
+// Записи місяця → дні → сесії (сесія = один прихід; рядків-проектів у сесії може бути кілька)
+function _groupDays(records){
+  const days={};
   records.forEach(r=>{
-    if(!byDate[r.date])byDate[r.date]={date:r.date,location:r.location,arrival:r.arrival,departure:r.departure,hours:r.hours,projects:[]};
-    if(r.code)byDate[r.date].projects.push({code:r.code,name:r.name,timeSpent:r.timeSpent});
+    const d=days[r.date]||(days[r.date]={date:r.date,sessions:{},violation:''});
+    const key=r.arrival||'—';
+    const s=d.sessions[key]||(d.sessions[key]={location:r.location,arrival:r.arrival,departure:'',lunchMin:0,hours:'',projects:[]});
+    if(r.departure&&!s.departure)s.departure=r.departure;
+    if(r.hours&&!s.hours)s.hours=r.hours;
+    if(r.lunchMin&&!s.lunchMin)s.lunchMin=r.lunchMin;
+    if(r.code)s.projects.push({code:r.code,name:r.name,timeSpent:r.timeSpent,workType:r.workType,section:r.section});
+    if(r.violation&&!d.violation)d.violation=r.violation;
   });
-  const days=Object.values(byDate).sort((a,b)=>a.date.localeCompare(b.date));
+  return Object.values(days).map(d=>{
+    const ss=Object.values(d.sessions).sort((a,b)=>(a.arrival||'').localeCompare(b.arrival||''));
+    return {
+      date:d.date,sessions:ss,violation:d.violation,
+      open:ss.some(s=>!s.departure),           // є прихід без відходу → жовтий
+      worked:ss.some(s=>s.departure),          // хоча б одна закрита сесія → зелений
+      netMins:ss.reduce((t,s)=>t+(s.departure?timeToMins(s.hours):0),0)
+    };
+  }).sort((a,b)=>a.date.localeCompare(b.date));
+}
+function _dayStatus(ds,d,today){
+  if(d&&d.open)return 'open';
+  if(d&&d.worked)return 'ok';
+  if(!d&&_isWeekday(ds)&&ds<today)return 'miss';
+  return '';
+}
 
-  let totalMins=0,offDays=0,homeDays=0,tripDays=0;
-  days.forEach(d=>{
-    totalMins+=timeToMins(d.hours);
-    if(d.location==='Офіс')offDays++;
-    else if(d.location==='Дома')homeDays++;
-    else if(d.location==='Командировка')tripDays++;
+let _calDays={};
+function _renderCalendar(month,days){
+  _calDays={};days.forEach(d=>{_calDays[d.date]=d;});
+  const today=_todayStr(),dates=_monthDates(month);
+  const lead=(new Date(dates[0]+'T12:00').getDay()+6)%7; // Пн = 0
+  let h='<div class="cal-grid">'+['Пн','Вт','Ср','Чт','Пт','Сб','Нд'].map(w=>'<div class="cal-dow">'+w+'</div>').join('');
+  for(let i=0;i<lead;i++)h+='<div class="cal-d empty"></div>';
+  dates.forEach(ds=>{
+    const d=_calDays[ds],st=_dayStatus(ds,d,today);
+    let cls='cal-d'+(_isWeekday(ds)?'':' we')+(st?' '+st:'')+(ds===today?' today':'');
+    let bottom='';
+    if(d){
+      const ic=[...new Set(d.sessions.map(s=>LOC_IC[s.location]||'•'))].join('');
+      bottom='<div class="cal-h">'+ic+(d.netMins?' '+minsToStr(d.netMins):'')+'</div>';
+    }
+    h+='<div class="'+cls+'"'+(st?' data-d="'+ds+'"':'')+'><div>'+Number(ds.slice(8))+'</div>'+bottom+'</div>';
   });
+  h+='</div>';
+  const leg='<div class="cal-leg">'
+    +'<span><i style="background:rgba(16,185,129,.55)"></i>відпрацьовано</span>'
+    +'<span><i style="background:rgba(245,158,11,.7)"></i>немає відходу</span>'
+    +'<span><i style="background:rgba(239,68,68,.55)"></i>пропущено</span>'
+    +'<span>🏢 офіс · 🏠 дома · ✈️ відрядження</span></div>';
+  const el=document.getElementById('statsCal');
+  el.innerHTML='<div class="adm-sec"><div class="adm-sec-t">📅 Календар</div>'+h+leg+'</div>';
+  el.querySelectorAll('.cal-d[data-d]').forEach(c=>{
+    c.addEventListener('mouseenter',()=>_showCalTip(c));
+    c.addEventListener('mouseleave',_hideCalTip);
+    c.addEventListener('click',ev=>{ev.stopPropagation();_showCalTip(c);});
+  });
+}
+function _calTipHtml(ds){
+  const d=_calDays[ds];
+  const lbl=new Date(ds+'T12:00').toLocaleDateString('uk-UA',{weekday:'short',day:'numeric',month:'long'});
+  let h='<div style="font-weight:700;margin-bottom:3px">'+esc(lbl)+'</div>';
+  if(!d)return h+'<div style="color:var(--err)">🔴 Немає запису — день пропущено</div>';
+  d.sessions.forEach((s,i)=>{
+    if(i)h+='<div style="border-top:1px solid var(--bd);margin:5px 0"></div>';
+    h+='<div>'+(LOC_IC[s.location]||'📍')+' '+esc(s.location||'—')+'</div>';
+    h+='<div>🕐 '+esc(s.arrival||'—')+' → '+(s.departure?esc(s.departure):'<span style="color:var(--warn)">немає відходу</span>')+'</div>';
+    if(s.departure){
+      h+='<div>⏱ Чистий час: <b style="color:var(--ach)">'+esc(s.hours||'—')+'</b>'+(s.lunchMin?' <span style="color:var(--tx3)">(обід '+s.lunchMin+' хв)</span>':'')+'</div>';
+    }
+    s.projects.forEach(p=>{
+      h+='<div style="color:var(--tx2);font-size:.7rem">• '+esc(p.code)+(p.name?' '+esc(p.name.slice(0,28)):'')+(p.timeSpent?' — <b>'+esc(p.timeSpent)+'</b>':'')+'</div>';
+    });
+  });
+  if(d.sessions.length>1&&d.netMins)h+='<div style="margin-top:4px">Разом: <b>'+minsToStr(d.netMins)+'</b></div>';
+  if(d.violation)h+='<div style="color:var(--warn);margin-top:3px">⚠️ '+esc(d.violation)+'</div>';
+  if(d.open&&ds<_todayStr()){ // сьогоднішній день ще триває — не нагадуємо
+    const age=_daysSince(ds);
+    h+='<div style="color:var(--warn);margin-top:3px">'+(age>=UNCLOSED_GRACE_DAYS
+      ?'⚠️ Не закрито '+age+' дн. — порушення'
+      :'⏳ Закрийте до '+_ddmm(_addDays(ds,UNCLOSED_GRACE_DAYS))+', інакше — порушення')+'</div>';
+  }
+  return h;
+}
+function _showCalTip(cell){
+  const tip=document.getElementById('calTip');
+  tip.innerHTML=_calTipHtml(cell.dataset.d);
+  tip.style.display='block';
+  const r=cell.getBoundingClientRect(),tw=tip.offsetWidth,th=tip.offsetHeight;
+  let left=Math.min(Math.max(8,r.left+r.width/2-tw/2),window.innerWidth-tw-8);
+  let top=r.bottom+6;
+  if(top+th>window.innerHeight-8)top=Math.max(8,r.top-th-6);
+  tip.style.left=left+'px';tip.style.top=top+'px';
+}
+function _hideCalTip(){const t=document.getElementById('calTip');if(t)t.style.display='none';}
+document.addEventListener('click',_hideCalTip);
+document.getElementById('statsOv').addEventListener('scroll',_hideCalTip,true);
 
-  // Рахуємо порушення
-  const violSet=new Set();
-  records.forEach(r=>{if(r.violation&&r.violation.trim())violSet.add(r.date);});
+function renderMyStats(records){
+  const month=document.getElementById('statsMonth').value;
+  const today=_todayStr();
+  const days=_groupDays(records);
+  _renderCalendar(month,days);
+
+  // ── Показники місяця ──
+  const dates=_monthDates(month);
+  const wdMonth=dates.filter(_isWeekday).length;
+  const wdToDate=dates.filter(ds=>_isWeekday(ds)&&ds<=today).length;
+  const normMonth=wdMonth*DAY_NORM,normToDate=wdToDate*DAY_NORM;
+  const byDate={};days.forEach(d=>{byDate[d.date]=d;});
+  const worked=days.filter(d=>d.worked);
+  const totalMins=worked.reduce((t,d)=>t+d.netMins,0);
+  const missDays=dates.filter(ds=>_isWeekday(ds)&&ds<today&&!byDate[ds]).length;
+  const openDays=days.filter(d=>d.open).length;
+  const overtime=worked.reduce((t,d)=>t+Math.max(0,d.netMins-DAY_NORM),0);
+  const loc={'Офіс':0,'Дома':0,'Командировка':0};
+  worked.forEach(d=>new Set(d.sessions.filter(s=>s.departure).map(s=>s.location)).forEach(l=>{if(l in loc)loc[l]++;}));
+  const avg=a=>a.length?Math.round(a.reduce((x,y)=>x+y,0)/a.length):0;
+  const avgArr=avg(worked.map(d=>timeToMins(d.sessions[0].arrival)).filter(Boolean));
+  const avgDep=avg(worked.map(d=>timeToMins([...d.sessions].reverse().find(s=>s.departure).departure)).filter(Boolean));
+  const hhmm=m=>m?String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0'):'—';
+  const diff=totalMins-normToDate;
+
+  // ── Дисципліна (як і раніше) ──
+  const violMap={}; // дата → опис порушення
+  records.forEach(r=>{if(r.violation&&r.violation.trim()&&!violMap[r.date])violMap[r.date]=r.violation.trim();});
+  // День без відходу довше UNCLOSED_GRACE_DAYS днів — теж порушення
+  days.forEach(d=>{if(d.open&&_daysSince(d.date,today)>=UNCLOSED_GRACE_DAYS&&!violMap[d.date])violMap[d.date]='не закрито '+_daysSince(d.date,today)+' дн.';});
+  const violSet=new Set(Object.keys(violMap));
   const violCount=violSet.size;
   const penalty=violCount>=3?violCount*200:0;
   const violHtml='<div class="adm-sec" style="margin-bottom:12px;'+(violCount>=3?'border-color:rgba(239,68,68,.4);background:rgba(239,68,68,.04)':violCount>=1?'border-color:rgba(245,158,11,.4)':'')+'">'
@@ -2188,52 +2490,107 @@ function renderMyStats(records){
     +'<div style="font-size:.82rem;color:var(--tx2)">Порушень за місяць: <b style="font-size:1rem;color:'+(violCount===0?'var(--ok)':violCount<3?'var(--warn)':'var(--err)')+'">'+violCount+'</b></div>'
     +(violCount===0?'<span class="vbadge ok">✅ Без порушень</span>':violCount<3?'<span class="vbadge warn">⚠️ До штрафу ще '+(3-violCount)+'</span>':'<span class="vbadge err">🔴 Штраф: −'+penalty+' грн</span>')
     +'</div>'
-    +(violCount>0?'<div style="margin-top:8px">'+[...violSet].sort().map(d=>'<div class="viol-row"><span style="color:var(--tx3)">'+d+'</span><span style="color:var(--warn);font-size:.74rem">порушення</span></div>').join('')+'</div>':'')
-    +'</div>';
-  // Картки зведення
-  document.getElementById('statsSummary').innerHTML=
-    violHtml
-    +'<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px">'
-    +_statCard('⏱ Всього годин',minsPretty(totalMins),'var(--ach)')
-    +_statCard('📅 Робочих днів',days.length,'var(--ok)')
-    +_statCard('🏢 Офіс',offDays+' дн.','#6366f1')
-    +_statCard('🏠 Дома/Відряд.',(homeDays+tripDays)+' дн.','var(--warn)')
+    +(violCount>0?'<div style="margin-top:8px">'+[...violSet].sort().map(d=>'<div class="viol-row"><span style="color:var(--tx3)">'+d+'</span><span style="color:var(--warn);font-size:.74rem">'+esc(violMap[d])+'</span></div>').join('')+'</div>':'')
     +'</div>';
 
-  // Кругова діаграма локацій
-  const pie=[{label:'Офіс',value:offDays,color:'#6366f1'},{label:'Дома',value:homeDays,color:'#10b981'},{label:'Командировка',value:tripDays,color:'#f59e0b'}].filter(s=>s.value>0);
+  // ── Норма vs факт ──
+  const pct=normToDate?Math.min(100,Math.round(totalMins/normToDate*100)):0;
+  const normHtml='<div class="adm-sec">'
+    +'<div class="adm-sec-t">⏱ Години: факт / норма</div>'
+    +'<div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px;font-size:.8rem;color:var(--tx2)">'
+    +'<span>Відпрацьовано <b style="color:var(--ach);font-size:1rem">'+minsToStr(totalMins)+'</b> з '+minsToStr(normToDate)+' на сьогодні</span>'
+    +'<span>Норма місяця: <b>'+minsToStr(normMonth)+'</b> ('+wdMonth+' роб. дн.)</span></div>'
+    +'<div class="st-prog"><div style="width:'+pct+'%;background:'+(diff>=0?'var(--ok)':'var(--warn)')+'"></div></div>'
+    +'<div style="font-size:.74rem;color:'+(diff>=0?'var(--ok)':'var(--warn)')+'">'+(diff>=0?'▲ +':'▼ −')+minsToStr(Math.abs(diff))+' від норми на сьогодні</div>'
+    +'</div>';
+
+  document.getElementById('statsSummary').innerHTML=
+    violHtml+normHtml
+    +'<div class="st-cards">'
+    +_statCard('📅 Відпрацьовано днів',worked.length,'var(--ok)')
+    +_statCard('🔴 Пропущено днів',missDays,missDays?'var(--err)':'var(--tx3)')
+    +_statCard('🟡 Без відходу',openDays,openDays?'var(--warn)':'var(--tx3)')
+    +_statCard('🏢 Офіс',loc['Офіс']+' дн.','#6366f1')
+    +_statCard('🏠 Дома',loc['Дома']+' дн.','var(--ok)')
+    +_statCard('✈️ Відрядження',loc['Командировка']+' дн.','var(--warn)')
+    +_statCard('⏫ Переробка',minsToStr(overtime),'var(--ach)')
+    +_statCard('🕐 Сер. прихід / відхід',hhmm(avgArr)+' / '+hhmm(avgDep),'var(--tx)')
+    +'</div>';
+
+  // ── Кругова діаграма локацій ──
+  const pie=[{label:'Офіс',value:loc['Офіс'],color:'#6366f1'},{label:'Дома',value:loc['Дома'],color:'#10b981'},{label:'Командировка',value:loc['Командировка'],color:'#f59e0b'}].filter(s=>s.value>0);
   document.getElementById('statsLocChart').innerHTML='<div class="adm-sec" style="margin-bottom:0"><div class="adm-sec-t">📍 По локаціях</div>'+_drawPie(pie)+'</div>';
 
-  // Агрегація по проектах
+  // ── Агрегація по об'єктах: години, дні, вид робіт, розділ ──
   const projMap={};
   records.forEach(r=>{
     if(!r.code)return;
-    if(!projMap[r.code])projMap[r.code]={code:r.code,name:r.name,mins:0};
-    projMap[r.code].mins+=timeToMins(r.timeSpent);
+    const p=projMap[r.code]||(projMap[r.code]={code:r.code,name:r.name,mins:0,days:new Set(),wt:{},sec:{}});
+    const m=timeToMins(r.timeSpent);
+    p.mins+=m;p.days.add(r.date);
+    if(r.workType)p.wt[r.workType]=(p.wt[r.workType]||0)+m;
+    if(r.section)p.sec[r.section]=(p.sec[r.section]||0)+m;
   });
   const projs=Object.values(projMap).sort((a,b)=>b.mins-a.mins);
+  const projTotal=projs.reduce((t,p)=>t+p.mins,0);
 
-  // Бар-чарт топ проектів
   const bars=projs.slice(0,8).map(p=>({label:(p.code+(p.name?' — '+p.name.slice(0,20):'')),value:p.mins,sub:minsPretty(p.mins)}));
-  document.getElementById('statsBarChart').innerHTML='<div class="adm-sec" style="margin-bottom:0"><div class="adm-sec-t">🏗 Топ проектів</div>'+_drawBars(bars)+'</div>';
+  document.getElementById('statsBarChart').innerHTML='<div class="adm-sec" style="margin-bottom:0"><div class="adm-sec-t">🏗 Топ об\'єктів</div>'+_drawBars(bars)+'</div>';
 
-  // Таблиця проектів
   if(!projs.length){document.getElementById('statsProjects').innerHTML='<div style="text-align:center;padding:20px;color:var(--tx3);font-size:.83rem">Записів за цей місяць не знайдено</div>';return;}
-  let tbl='<div class="adm-sec"><div class="adm-sec-t">📋 Деталізація по проектах</div><div class="sumgrid">'
-    +'<div class="sumrow" style="background:var(--s3)"><div class="sumkey" style="font-weight:700;color:var(--tx)">Шифр</div><div class="sumval" style="font-weight:700;color:var(--tx)">Назва · Витрачено</div></div>';
+  const subList=(obj,ic)=>Object.entries(obj).sort((a,b)=>b[1]-a[1])
+    .map(([k,m])=>'<div class="st-sub"><span>'+ic+' '+esc(k)+'</span><span>'+minsPretty(m)+'</span></div>').join('');
+  let tbl='<div class="adm-sec"><div class="adm-sec-t">📋 Об\'єкти за місяць · натисніть для деталей</div>';
   projs.forEach(p=>{
-    tbl+='<div class="sumrow"><div class="sumkey" style="font-family:monospace;font-size:.78rem">'+esc(p.code)+'</div>'
-      +'<div class="sumval">'+(p.name?'<div style="font-size:.72rem;color:var(--tx2);margin-bottom:2px">'+esc(p.name.slice(0,60))+'</div>':'')
-      +'<span style="color:var(--ach);font-weight:700">'+minsPretty(p.mins)+'</span></div></div>';
+    const share=projTotal?Math.round(p.mins/projTotal*100):0;
+    tbl+='<details class="st-obj"><summary>'
+      +'<span style="flex:1;min-width:0"><b style="font-family:monospace;font-size:.78rem">'+esc(p.code)+'</b>'
+      +(p.name?' <span style="font-size:.72rem;color:var(--tx2)">'+esc(p.name.slice(0,60))+'</span>':'')+'</span>'
+      +'<span style="white-space:nowrap;font-size:.78rem"><b style="color:var(--ach)">'+minsPretty(p.mins)+'</b>'
+      +' <span style="color:var(--tx3)">· '+share+'% · '+p.days.size+' дн.</span></span>'
+      +'</summary>'
+      +subList(p.wt,'⚒')+subList(p.sec,'📋')
+      +'</details>';
   });
-  tbl+='</div></div>';
+  tbl+='</div>';
   document.getElementById('statsProjects').innerHTML=tbl;
+}
+
+// ── Мої об'єкти за весь час ──
+async function loadMyObjects(btn){
+  const box=document.getElementById('statsAllObj');
+  const cfg=getCfg();
+  if(!cfg.url||!user){box.innerHTML='<div style="font-size:.78rem;color:var(--tx3);padding-top:8px">⚠️ Sheets не підключено</div>';return;}
+  if(btn){btn.disabled=true;btn.innerHTML='<span class="spin"></span>';}
+  try{
+    const r=await fetch(cfg.url+'?action=myObjects&employee='+encodeURIComponent(user)+'&tabSheet='+encodeURIComponent(cfg.tab),{cache:'no-store'});
+    const d=await r.json();
+    if(!d.ok)throw new Error(d.error||'помилка сервера');
+    const objs=d.objects||[];
+    if(!objs.length){box.innerHTML='<div style="font-size:.78rem;color:var(--tx3);padding-top:8px">Записів не знайдено</div>';}
+    else{
+      const total=objs.reduce((t,o)=>t+o.mins,0);
+      box.innerHTML='<div style="font-size:.76rem;color:var(--tx2);margin:8px 0 4px">Всього: <b style="color:var(--ach)">'+minsPretty(total)+'</b> на '+objs.length+' об\'єктах</div>'
+        +objs.map(o=>'<div class="st-obj" style="display:flex;justify-content:space-between;gap:10px;align-items:baseline">'
+          +'<span style="flex:1;min-width:0"><b style="font-family:monospace;font-size:.78rem">'+esc(o.code)+'</b>'
+          +(o.name?' <span style="font-size:.72rem;color:var(--tx2)">'+esc(o.name.slice(0,60))+'</span>':'')
+          +'<div style="font-size:.66rem;color:var(--tx3)">'+esc(o.first)+(o.first!==o.last?' — '+esc(o.last):'')+'</div></span>'
+          +'<span style="white-space:nowrap;font-size:.78rem"><b style="color:var(--ach)">'+minsPretty(o.mins)+'</b> <span style="color:var(--tx3)">· '+o.days+' дн.</span></span>'
+          +'</div>').join('');
+    }
+    if(btn)btn.innerHTML='Оновити';
+  }catch(e){
+    box.innerHTML='<div style="font-size:.78rem;color:var(--err);padding-top:8px">❌ '+esc(e.message)+'</div>';
+    if(btn)btn.innerHTML='Показати';
+  }
+  if(btn)btn.disabled=false;
 }
 
 // ── Admin Monitoring ──────────────────────────────────────────────────────────
 function openMonitoring(){
   if(user!==ADMIN_USER){toast('⛔ Тільки для адміністратора','err');return;}
   _buildMonthOptions('monMonth');
+  {const o=document.createElement('option');o.value='';o.textContent='ЗА ВЕСЬ ЧАС';document.getElementById('monMonth').appendChild(o);}
   document.getElementById('monOv').classList.add('open');
   loadAdminStats();
 }
@@ -2247,7 +2604,7 @@ async function loadAdminStats(){
   const cfg=getCfg();
   const msg=document.getElementById('monLoadMsg');
   msg.textContent='⏳ Завантаження...';
-  ['monOnline','monProjChart','monLocChart','monSuspicious'].forEach(id=>{document.getElementById(id).innerHTML='';});
+  ['monOnline','monProjChart','monLocChart','monProjTable','monSuspicious'].forEach(id=>{document.getElementById(id).innerHTML='';});
   if(!cfg.url){msg.textContent='⚠️ Sheets не підключено';return;}
   try{
     const r=await fetch(cfg.url+'?action=adminStats&month='+month+'&tabSheet='+encodeURIComponent(cfg.tab),{cache:'no-store'});
@@ -2280,17 +2637,23 @@ function renderMonitoring(d){
   const bars=projs.slice(0,12).map(p=>({label:p.code+(p.name?' '+p.name.slice(0,18):''),value:p.totalMins,sub:minsPretty(p.totalMins)}));
   document.getElementById('monProjChart').innerHTML='<div class="adm-sec" style="margin-bottom:0"><div class="adm-sec-t">🏗 Трудовитрати по об\'єктах</div>'+_drawBars(bars)+'</div>';
 
-  // Розподіл по локаціях (з projectStats не витягнути — замість цього показуємо топ-3 співробітники по годинах)
+  // Навантаження по співробітниках — реальні години кожного (byEmp), а не повний час об'єкта
   const empMap={};
-  (d.projectStats||[]).forEach(p=>{
-    (p.employees||[]).forEach(emp=>{
-      if(!empMap[emp])empMap[emp]=0;
-      empMap[emp]+=p.totalMins;
-    });
-  });
-  const topEmps=Object.entries(empMap).sort((a,b)=>b[1]-a[1]).slice(0,8)
+  projs.forEach(p=>Object.entries(p.byEmp||{}).forEach(([emp,m])=>{empMap[emp]=(empMap[emp]||0)+m;}));
+  const topEmps=Object.entries(empMap).sort((a,b)=>b[1]-a[1]).slice(0,10)
     .map(([emp,m])=>({label:emp,value:m,sub:minsPretty(m)}));
   document.getElementById('monLocChart').innerHTML='<div class="adm-sec" style="margin-bottom:0"><div class="adm-sec-t">👥 Навантаження по співробітниках</div>'+_drawBars(topEmps)+'</div>';
+
+  // Таблиця об'єктів: розгортається в години кожного співробітника
+  const tblEl=document.getElementById('monProjTable');
+  if(!projs.length){tblEl.innerHTML='<div style="font-size:.8rem;color:var(--tx3);padding:8px 0">Немає даних за цей період</div>';}
+  else tblEl.innerHTML=projs.map(p=>'<details class="st-obj"><summary>'
+    +'<span style="flex:1;min-width:0"><b style="font-family:monospace;font-size:.78rem">'+esc(p.code)+'</b>'
+    +(p.name?' <span style="font-size:.72rem;color:var(--tx2)">'+esc(p.name.slice(0,60))+'</span>':'')+'</span>'
+    +'<span style="white-space:nowrap;font-size:.78rem"><b style="color:var(--ach)">'+minsPretty(p.totalMins)+'</b>'
+    +' <span style="color:var(--tx3)">· '+(p.employees||[]).length+' спів.</span></span></summary>'
+    +Object.entries(p.byEmp||{}).sort((a,b)=>b[1]-a[1]).map(([emp,m])=>'<div class="st-sub"><span>👤 '+esc(emp)+'</span><span>'+minsPretty(m)+'</span></div>').join('')
+    +'</details>').join('');
 
   // Підозрілі IP
   const suspEl=document.getElementById('monSuspicious');
@@ -2485,6 +2848,7 @@ function closePrevDay(){
   const s=_prevSessionData;if(!s)return;
   sessionStorage.removeItem('tabel_prev');
   document.getElementById('unclosedOv').style.display='none';
+  _resetDayForm();
   userLoc=s.location;userIP=s.ip;
   document.getElementById('s2d').value=s.date;
   document.getElementById('s2m').value=s.month;
