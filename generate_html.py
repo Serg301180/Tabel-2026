@@ -8,6 +8,7 @@ with open('tabel_data.json', 'r', encoding='utf-8') as f:
 employees = data['employees']
 sections  = data['sections']
 objects   = data['objects']
+worktypes = data.get('worktypes', [])
 
 # Load template
 with open('template_v2.html', 'r', encoding='utf-8') as f:
@@ -17,6 +18,7 @@ with open('template_v2.html', 'r', encoding='utf-8') as f:
 html = html.replace('%%EMPLOYEES%%', json.dumps(employees, ensure_ascii=False))
 html = html.replace('%%SECTIONS%%',  json.dumps(sections,  ensure_ascii=False))
 html = html.replace('%%OBJECTS%%',   json.dumps(objects,   ensure_ascii=False))
+html = html.replace('%%WORKTYPES%%', json.dumps(worktypes, ensure_ascii=False))
 # Номер збірки (YYMMDDHHMM) — за ним форма бачить, що на сайті з'явилась новіша версія
 build = datetime.now().strftime('%y%m%d%H%M')
 html = html.replace('%%BUILD%%', build)
@@ -31,3 +33,4 @@ print(f'OK: {out}  ({kb} KB)  build {build}')
 print(f'   Spivrobitnikiv: {len(employees)}')
 print(f'   Rozdiliv:       {len(sections)}')
 print(f'   Obiektiv:       {len(objects)}')
+print(f'   Vydiv robit:    {len(worktypes)}')

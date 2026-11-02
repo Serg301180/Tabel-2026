@@ -9,6 +9,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Source vs generated files
 
 - Edit `template_v2.html` (the single-file vanilla HTML/CSS/JS app; Ukrainian UI). Never hand-edit `index.html`, because it is generated.
+- `tabel_data.json` is an offline fallback snapshot of the Sheets reference lists (employees, sections, objects, worktypes). The live form prefers `GET <DEFAULT_URL>?action=getData`, so refresh this file from that endpoint when the lists drift.
 - Build: `python generate_html.py` injects `tabel_data.json` into the `%%EMPLOYEES%%` / `%%SECTIONS%%` / `%%OBJECTS%%` placeholders and writes `index.html`, which is served by GitHub Pages and committed. Re-run it after every template or data change.
 - `generate_html.py` also stamps `%%BUILD%%` (YYMMDDHHMM) into `APP_BUILD`. Open pages poll the live `index.html` and show the "Вийшла нова версія" bar when the deployed build is newer, so always regenerate before publishing.
 - Old release snapshots live in `_archive/` (gitignored, local only). Some hold the only copies of old `apps_script.gs` versions, so don't edit or delete them. Git history plus the GitHub remote (`origin`, branch `main`; GitHub Pages serves `index.html`) is now the release record, so don't create new snapshot folders unless the user asks.
