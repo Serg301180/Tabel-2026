@@ -197,6 +197,7 @@ body.upd-on .toast{bottom:70px}
 .st-obj{border-bottom:1px solid var(--bd);padding:7px 0}
 .st-obj summary{cursor:pointer;list-style:none;display:flex;justify-content:space-between;gap:10px;align-items:baseline}
 .st-obj summary::-webkit-details-marker{display:none}
+.st-obj span{overflow-wrap:anywhere}
 .st-obj summary::before{content:'▸';color:var(--tx3);margin-right:4px}
 .st-obj[open] summary::before{content:'▾'}
 .st-sub{font-size:.72rem;color:var(--tx2);padding:4px 0 2px 16px;display:flex;justify-content:space-between;gap:10px}
@@ -960,7 +961,7 @@ const ADMIN_USER = 'Любченко С.';
 // ═══ ПЕРЕВІРКА НОВОЇ ВЕРСІЇ ФОРМИ ═══
 // generate_html.py підставляє номер збірки (YYMMDDHHMM). Форма періодично завантажує свіжий
 // index.html з сайту (в обхід кешу) і порівнює номер. Новіший → смуга «Вийшла нова версія».
-const APP_BUILD='2611020257';
+const APP_BUILD='2611020309';
 let _updLastCheck=0;
 async function checkForUpdate(){
   if(location.protocol==='file:'||!/^\d+$/.test(APP_BUILD))return; // локальний файл / не зібрано
@@ -2491,7 +2492,7 @@ function _calTipHtml(ds){
       h+='<div>⏱ Чистий час: <b style="color:var(--ach)">'+esc(s.hours||'—')+'</b>'+(s.lunchMin?' <span style="color:var(--tx3)">(обід '+s.lunchMin+' хв)</span>':'')+'</div>';
     }
     s.projects.forEach(p=>{
-      h+='<div style="color:var(--tx2);font-size:.7rem">• '+esc(p.code)+(p.name?' '+esc(p.name.slice(0,28)):'')+(p.timeSpent?' — <b>'+esc(p.timeSpent)+'</b>':'')+'</div>';
+      h+='<div style="color:var(--tx2);font-size:.7rem">• '+esc(p.code)+(p.name?' '+esc(p.name):'')+(p.timeSpent?' — <b>'+esc(p.timeSpent)+'</b>':'')+'</div>';
     });
   });
   if(d.sessions.length>1&&d.netMins)h+='<div style="margin-top:4px">Разом: <b>'+minsToStr(d.netMins)+'</b></div>';
@@ -2601,7 +2602,7 @@ function renderMyStats(records){
   const projs=Object.values(projMap).sort((a,b)=>b.mins-a.mins);
   const projTotal=projs.reduce((t,p)=>t+p.mins,0);
 
-  const bars=projs.slice(0,8).map(p=>({label:(p.code+(p.name?' — '+p.name.slice(0,20):'')),value:p.mins,sub:minsPretty(p.mins)}));
+  const bars=projs.slice(0,8).map(p=>({label:(p.code+(p.name?' — '+p.name:'')),value:p.mins,sub:minsPretty(p.mins)}));
   document.getElementById('statsBarChart').innerHTML='<div class="adm-sec" style="margin-bottom:0"><div class="adm-sec-t">🏗 Топ об\'єктів</div>'+_drawBars(bars)+'</div>';
 
   if(!projs.length){document.getElementById('statsProjects').innerHTML='<div style="text-align:center;padding:20px;color:var(--tx3);font-size:.83rem">Записів за цей місяць не знайдено</div>';return;}
@@ -2612,7 +2613,7 @@ function renderMyStats(records){
     const share=projTotal?Math.round(p.mins/projTotal*100):0;
     tbl+='<details class="st-obj"><summary>'
       +'<span style="flex:1;min-width:0"><b style="font-family:monospace;font-size:.78rem">'+esc(p.code)+'</b>'
-      +(p.name?' <span style="font-size:.72rem;color:var(--tx2)">'+esc(p.name.slice(0,60))+'</span>':'')+'</span>'
+      +(p.name?' <span style="font-size:.72rem;color:var(--tx2)">'+esc(p.name)+'</span>':'')+'</span>'
       +'<span style="white-space:nowrap;font-size:.78rem"><b style="color:var(--ach)">'+minsPretty(p.mins)+'</b>'
       +' <span style="color:var(--tx3)">· '+share+'% · '+p.days.size+' дн.</span></span>'
       +'</summary>'
@@ -2643,7 +2644,7 @@ async function loadMyObjects(btn){
       box.innerHTML='<div style="font-size:.76rem;color:var(--tx2);margin:8px 0 4px">Всього: <b style="color:var(--ach)">'+minsPretty(total)+'</b> на '+objs.length+' об\'єктах</div>'
         +objs.map(o=>'<div class="st-obj" style="display:flex;justify-content:space-between;gap:10px;align-items:baseline">'
           +'<span style="flex:1;min-width:0"><b style="font-family:monospace;font-size:.78rem">'+esc(o.code)+'</b>'
-          +(o.name?' <span style="font-size:.72rem;color:var(--tx2)">'+esc(o.name.slice(0,60))+'</span>':'')
+          +(o.name?' <span style="font-size:.72rem;color:var(--tx2)">'+esc(o.name)+'</span>':'')
           +'<div style="font-size:.66rem;color:var(--tx3)">'+esc(o.first)+(o.first!==o.last?' — '+esc(o.last):'')+'</div></span>'
           +'<span style="white-space:nowrap;font-size:.78rem"><b style="color:var(--ach)">'+minsPretty(o.mins)+'</b> <span style="color:var(--tx3)">· '+o.days+' дн.</span></span>'
           +'</div>').join('');
@@ -2704,7 +2705,7 @@ function renderMonitoring(d){
 
   // Трудовитрати по проектах (бар-чарт + таблиця)
   const projs=d.projectStats||[];
-  const bars=projs.slice(0,12).map(p=>({label:p.code+(p.name?' '+p.name.slice(0,18):''),value:p.totalMins,sub:minsPretty(p.totalMins)}));
+  const bars=projs.slice(0,12).map(p=>({label:p.code+(p.name?' '+p.name:''),value:p.totalMins,sub:minsPretty(p.totalMins)}));
   document.getElementById('monProjChart').innerHTML='<div class="adm-sec" style="margin-bottom:0"><div class="adm-sec-t">🏗 Трудовитрати по об\'єктах</div>'+_drawBars(bars)+'</div>';
 
   // Навантаження по співробітниках — реальні години кожного (byEmp), а не повний час об'єкта
@@ -2719,7 +2720,7 @@ function renderMonitoring(d){
   if(!projs.length){tblEl.innerHTML='<div style="font-size:.8rem;color:var(--tx3);padding:8px 0">Немає даних за цей період</div>';}
   else tblEl.innerHTML=projs.map(p=>'<details class="st-obj"><summary>'
     +'<span style="flex:1;min-width:0"><b style="font-family:monospace;font-size:.78rem">'+esc(p.code)+'</b>'
-    +(p.name?' <span style="font-size:.72rem;color:var(--tx2)">'+esc(p.name.slice(0,60))+'</span>':'')+'</span>'
+    +(p.name?' <span style="font-size:.72rem;color:var(--tx2)">'+esc(p.name)+'</span>':'')+'</span>'
     +'<span style="white-space:nowrap;font-size:.78rem"><b style="color:var(--ach)">'+minsPretty(p.totalMins)+'</b>'
     +' <span style="color:var(--tx3)">· '+(p.employees||[]).length+' спів.</span></span></summary>'
     +Object.entries(p.byEmp||{}).sort((a,b)=>b[1]-a[1]).map(([emp,m])=>'<div class="st-sub"><span>👤 '+esc(emp)+'</span><span>'+minsPretty(m)+'</span></div>').join('')
@@ -2770,8 +2771,8 @@ function _drawBars(items){
   return '<div style="margin-top:8px">'+items.map(item=>{
     const pct=Math.round(item.value/max*100);
     return '<div style="margin-bottom:9px">'
-      +'<div style="display:flex;justify-content:space-between;font-size:.7rem;color:var(--tx2);margin-bottom:3px">'
-      +'<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:70%">'+esc(item.label)+'</span>'
+      +'<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:6px;font-size:.7rem;color:var(--tx2);margin-bottom:3px">'
+      +'<span style="flex:1;min-width:0;overflow-wrap:anywhere;line-height:1.35">'+esc(item.label)+'</span>'
       +'<span style="color:var(--ach);font-weight:700;flex-shrink:0;margin-left:6px">'+esc(item.sub||'')+'</span></div>'
       +'<div style="background:var(--s3);border-radius:3px;height:7px;overflow:hidden">'
       +'<div style="width:'+pct+'%;height:100%;background:var(--ac);border-radius:3px"></div>'
