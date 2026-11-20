@@ -252,7 +252,7 @@ body.upd-on .toast{bottom:70px}
 </style>
 </head>
 <body>
-<div id="appVersion">v26.11.02</div>
+<div id="appVersion">v26.11.20</div>
 <div class="app">
 
 <!-- ═══ HEADER ═══ -->
@@ -774,13 +774,14 @@ body.upd-on .toast{bottom:70px}
   <!-- Стан 1: кнопка запиту коду -->
   <div id="otpState1">
     <button class="btn btn-p" style="width:100%" onclick="requestOTP()">🔑 Запросити код підтвердження</button>
+    <button class="btn btn-s" style="width:100%;margin-top:8px" onclick="showOtpInput(false)">🔢 У мене вже є код</button>
     <button class="btn btn-s" style="width:100%;margin-top:8px" onclick="closeUnclosedLater()">⏭ Пізніше — продовжити роботу</button>
     <div id="otpReqMsg" style="margin-top:10px;font-size:.75rem;min-height:20px"></div>
   </div>
 
   <!-- Стан 2: введення коду (прихований до запиту) -->
   <div id="otpState2" style="display:none">
-    <div style="font-size:.78rem;color:var(--ok);margin-bottom:10px">✅ Код надіслано адміністратору в Telegram</div>
+    <div id="otpSentNote" style="font-size:.78rem;color:var(--ok);margin-bottom:10px">✅ Код надіслано адміністратору в Telegram. Код не має терміну дії — можна ввести його будь-коли.</div>
     <div class="f" style="text-align:left">
       <label>Введіть 6-значний код підтвердження</label>
       <input id="otpCodeInput" type="text" inputmode="numeric" maxlength="6" placeholder="000000"
@@ -1049,7 +1050,7 @@ function _wnAdminAfterLogin(){
 // ═══ ПЕРЕВІРКА НОВОЇ ВЕРСІЇ ФОРМИ ═══
 // generate_html.py підставляє номер збірки (YYMMDDHHMM). Форма періодично завантажує свіжий
 // index.html з сайту (в обхід кешу) і порівнює номер. Новіший → смуга «Вийшла нова версія».
-const APP_BUILD='2611020520';
+const APP_BUILD='2611202300';
 let _updLastCheck=0;
 async function checkForUpdate(){
   if(location.protocol==='file:'||!/^\d+$/.test(APP_BUILD))return; // локальний файл / не зібрано
@@ -3114,18 +3115,26 @@ function resetOtpState(){
   document.getElementById('otpReqMsg').textContent='';
   document.getElementById('otpVerifyMsg').textContent='';
   document.getElementById('otpCodeInput').value='';
+  const rb=document.querySelector('#otpState1 .btn-p');
+  rb.disabled=false;rb.innerHTML='🔑 Запросити код підтвердження';
+}
+function showOtpInput(sent){
+  document.getElementById('otpSentNote').style.display=sent?'block':'none';
+  document.getElementById('otpState1').style.display='none';
+  document.getElementById('otpState2').style.display='block';
+  document.getElementById('otpCodeInput').focus();
 }
 async function requestOTP(){
   const s=_prevSessionData;if(!s)return;
   const cfg=getCfg();
   if(!cfg.url){document.getElementById('otpReqMsg').innerHTML='<span style="color:var(--err)">⚠️ Google Sheets не налаштовано</span>';return;}
-  const btn=document.querySelector('#otpState1 .btn');
+  const btn=document.querySelector('#otpState1 .btn-p');
   btn.disabled=true;btn.innerHTML='⏳ Надсилання...';
   document.getElementById('otpReqMsg').textContent='';
   try{
     await postGAS({type:'requestOTP',employee:s.employee||user,date:s.date,arrival:s.arrival,location:s.location});
-    document.getElementById('otpState1').style.display='none';
-    document.getElementById('otpState2').style.display='block';
+    btn.disabled=false;btn.innerHTML='🔑 Запросити код підтвердження';
+    showOtpInput(true);
   }catch(e){
     document.getElementById('otpReqMsg').innerHTML='<span style="color:var(--err)">❌ '+esc(e.message)+'</span>';
     btn.disabled=false;btn.innerHTML='🔑 Запросити код підтвердження';
@@ -3146,7 +3155,7 @@ async function verifyOTP(){
     if(d.ok && d.valid){
       closePrevDay();
     }else{
-      document.getElementById('otpVerifyMsg').innerHTML='<span style="color:var(--err)">❌ '+(d.error||'Невірний або прострочений код')+'</span>';
+      document.getElementById('otpVerifyMsg').innerHTML='<span style="color:var(--err)">❌ '+esc(d.error||'Невірний код')+'</span>';
       btn.disabled=false;btn.innerHTML='✅ Підтвердити та закрити день';
     }
   }catch(e){
