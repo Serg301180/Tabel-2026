@@ -648,7 +648,7 @@ body.upd-on .toast{bottom:70px}
   <!-- Ручний запис -->
   <div class="adm-sec">
     <div class="adm-sec-t">✍️ Ручний запис приходу</div>
-    <div style="font-size:.7rem;color:var(--tx3);margin-bottom:10px">Для ситуацій коли співробітник забув відмітити прихід вчасно. Записується напряму в Google Sheets без обмежень по часу.</div>
+    <div style="font-size:.7rem;color:var(--tx3);margin-bottom:10px">Для ситуацій коли співробітник забув відмітити прихід вчасно. Записується напряму в Google Sheets. Дати із закритого (вже нарахованого) періоду не приймаються.</div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px">
       <div class="f" style="margin:0"><label>Співробітник</label><select id="mrEmp"><option value="">— Виберіть —</option></select></div>
       <div class="f" style="margin:0"><label>Дата</label><input type="date" id="mrDate"></div>
@@ -764,6 +764,15 @@ body.upd-on .toast{bottom:70px}
 </div>
 </div>
 <div id="updBar" onclick="applyUpdate()">🔄 Вийшла нова версія табеля · <u>Натисніть, щоб оновити</u></div>
+<div id="perWarnOv" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:975;align-items:center;justify-content:center;padding:16px">
+<div style="background:var(--s1);border:2px solid var(--warn);border-radius:14px;width:100%;max-width:420px;padding:24px 20px;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,.8);max-height:90vh;overflow-y:auto">
+  <div style="font-size:2.2rem;margin-bottom:6px">⏳</div>
+  <div id="perWarnTitle" style="font-size:1rem;font-weight:700;color:var(--warn);margin-bottom:12px"></div>
+  <div id="perWarnBody" style="font-size:.82rem;color:var(--tx2);line-height:1.55;text-align:left"></div>
+  <button class="btn btn-p" style="width:100%;margin-top:16px" onclick="closePeriodWarn(true)">📊 Перевірити мої відвідування</button>
+  <button class="btn btn-s" style="width:100%;margin-top:8px" onclick="closePeriodWarn(false)">Зрозуміло</button>
+</div>
+</div>
 <div id="unclosedOv" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:970;align-items:center;justify-content:center;padding:20px">
 <div style="background:var(--s1);border:2px solid var(--warn);border-radius:14px;width:100%;max-width:420px;padding:28px 22px;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,.8)">
   <div style="font-size:2.4rem;margin-bottom:8px">⚠️</div>
@@ -995,23 +1004,15 @@ const ADMIN_USER = 'Любченко С.';
 // Змініть id і пункти, коли виходить помітне оновлення: вікно з'явиться один раз на кожному
 // пристрої (до входу), поки не натиснуть «Продовжити». Дрібні виправлення — id не міняти.
 const WHATS_NEW={
-  id:'26.11.02',
+  id:'26.11.20',
   items:[
-    ['📅','<b>Календар у «Статистиці»</b>: зелений — відпрацьовано, червоний — пропущено, жовтий — немає відходу. Натисніть на день — побачите деталі.'],
-    ['📊','Години за місяць і норма, дні в офісі / вдома / у відрядженні, години по кожному об\'єкту — за місяць і за весь час.'],
-    ['💾','«✅ Відправлено» з\'являється, лише коли таблиця підтвердила запис. Немає інтернету — дані збережуться на телефоні й дошлються самі. <b>Відкрийте табель на цьому ж телефоні</b>, коли з\'явиться зв\'язок.'],
-    ['🟡','Незакритий день більше не блокує роботу: зверху жовта смуга, закрити його можна з кодом адміністратора. Не закрито 3 дні — порушення.'],
-    ['📌','<b>Об\'єкт вибирайте зі списку</b>, що випадає (натисніть на варіант). Якщо об\'єкта немає — натисніть «Об\'єкта немає в списку?» і впишіть шифр і назву: адміністратор додасть його.'],
-    ['🧾','Бухгалтерія: у пошуку об\'єкта введіть «бух», «звіт» або «зп» — для цих робіт є окремі пункти.'],
-    ['🔎','Назви об\'єктів показуються повністю.'],
-    ['🔄','Вийшла нова версія — знизу синя смуга, натисніть її.']
+    ['🔒','<b>Зарплата нараховується за періоди</b>: 1–15 число і 16 — кінець місяця. Після закінчення періоду дні з нього <b>внести чи закрити вже не можна</b> — вони не будуть оплачені.'],
+    ['⏳','За 2 дні до кінця періоду при вході з\'явиться нагадування. Перевірте календар у «Статистиці»: усі дні закриті, пропущених немає.'],
+    ['🔑','Код на закриття дня тепер діє <b>без обмеження часу</b>. Уже маєте код — натисніть «У мене вже є код».']
   ],
   admin:[
-    ['👤','У «Статистиці» — вибір співробітника: його календар, години й об\'єкти за весь час, включно з колишніми.'],
-    ['📡','Моніторинг: період «за весь час» і години кожного співробітника на кожен об\'єкт.'],
-    ['⚠️','Моніторинг: блок «Записи поза реєстром» — позначте записи, виберіть об\'єкт із реєстру й натисніть «Замінити». Про нові такі записи прийде повідомлення в Telegram.'],
-    ['🧾','⚙ Налаштування → «Об\'єкти бухгалтерії»: окремий перелік (шифр | назва), реєстр у таблиці не змінюється.'],
-    ['✅','Усі дії адміна (ручний прихід, IP, запити) показують помилку, якщо сервер не зберіг.']
+    ['🔒','Періоди закриваються автоматично після 15-го і останнього дня місяця. Запити, коди й ручні записи на дати із закритого періоду сервер не приймає.'],
+    ['🔑','Повторний запит коду на той самий день надсилає той самий код — раніше виданий не «згорає».']
   ]
 };
 let _wnShownAdmin=false;
@@ -1050,7 +1051,7 @@ function _wnAdminAfterLogin(){
 // ═══ ПЕРЕВІРКА НОВОЇ ВЕРСІЇ ФОРМИ ═══
 // generate_html.py підставляє номер збірки (YYMMDDHHMM). Форма періодично завантажує свіжий
 // index.html з сайту (в обхід кешу) і порівнює номер. Новіший → смуга «Вийшла нова версія».
-const APP_BUILD='2611202300';
+const APP_BUILD='2611202319';
 let _updLastCheck=0;
 async function checkForUpdate(){
   if(location.protocol==='file:'||!/^\d+$/.test(APP_BUILD))return; // локальний файл / не зібрано
@@ -1177,7 +1178,7 @@ document.addEventListener('DOMContentLoaded', async ()=>{
       // Незакриті попередні дні більше не блокують — лише жовта смуга-нагадування
       goStep(2);
     }
-    refreshUnclosed();
+    showPeriodWarn(refreshUnclosed());
     _wnAdminAfterLogin();
   }
 
@@ -1258,6 +1259,7 @@ async function submitManualEntry(){
   if(!emp){toast('⚠️ Виберіть співробітника','err');return;}
   if(!date){toast('⚠️ Вкажіть дату','err');return;}
   if(!arr){toast('⚠️ Вкажіть час приходу','err');return;}
+  if(_periodClosed(date)){toast('🔒 '+_periodClosedText(date),'err');return;}
   const cfg=getCfg();
   if(!cfg.url){toast('⚠️ Google Sheets не налаштовано','err');return;}
   const month=new Date(date+'T12:00').toLocaleDateString('uk-UA',{month:'long'}).toUpperCase();
@@ -1541,7 +1543,8 @@ async function doLogin(){
   if(!p){toast('⚠️ Введіть пароль','err');return;}
   if(p!==getPwd(n)){toast('❌ Невірний пароль','err');document.getElementById('s1p').select();return;}
   user=n;sessionStorage.setItem('tabel_u',n);setBadge(n);
-  refreshUnclosed(); // у фоні: незакриті попередні дні → жовта смуга
+  // у фоні: незакриті попередні дні → жовта смуга; за 2 дні до закриття періоду — попередження
+  showPeriodWarn(refreshUnclosed());
   _wnAdminAfterLogin();
 
   // Пріоритет 1: localStorage (швидкий шлях)
@@ -1660,6 +1663,52 @@ const UNCLOSED_GRACE_DAYS=3;
 let _unclosedDays=[];   // [{date,month,arrival,location,ip}] від найстаршого
 function _daysSince(ds,today){return Math.round((Date.parse((today||_todayStr())+'T12:00')-Date.parse(ds+'T12:00'))/86400000);}
 function _addDays(ds,n){const d=new Date(ds+'T12:00');d.setDate(d.getDate()+n);return _localDateStr(d);}
+
+// ═══ ПЕРІОДИ НАРАХУВАННЯ ЗП ═══
+// 1–15 і 16–кінець місяця. Після останнього дня періоду він закритий: бухгалтер нарахувала,
+// дані за його дні вже не приймаються (те саме перевіряє сервер). За 2 дні до закриття —
+// попередження при вході. PERIOD_CLOSE_DELAY_DAYS має збігатися з apps_script.gs.
+const PERIOD_CLOSE_DELAY_DAYS=0;
+function _periodOf(ds){
+  const y=+ds.slice(0,4),m=+ds.slice(5,7),d=+ds.slice(8,10);
+  const last=new Date(y,m,0).getDate();
+  const s=d<=15?1:16,e=d<=15?15:last,p=n=>String(n).padStart(2,'0');
+  return{start:ds.slice(0,8)+p(s),end:ds.slice(0,8)+p(e),label:s+'–'+e+'.'+p(m)};
+}
+function _periodCloseDay(ds){return _addDays(_periodOf(ds).end,PERIOD_CLOSE_DELAY_DAYS);}
+function _periodClosed(ds){return !!ds&&/^\d{4}-\d{2}-\d{2}$/.test(ds)&&_todayStr()>_periodCloseDay(ds);}
+function _periodClosedText(ds){
+  return 'Період '+_periodOf(ds).label+' закрито (зарплату нараховано) — дані за '+_ddmm(ds)+' вже не приймаються';
+}
+// Попередження «до закриття періоду залишилось N дн.» — раз на день для кожного співробітника
+async function showPeriodWarn(unclosedReady){
+  if(!user)return;
+  const today=_todayStr(),close=_periodCloseDay(today);
+  const left=_daysSince(today,close)+1; // включно з сьогодні
+  if(left>2)return;
+  const key='per_warn_'+user;
+  if(ls(key)===today)return;
+  if(unclosedReady)await unclosedReady;
+  if(!user)return;
+  const p=_periodOf(today);
+  const mine=_unclosedDays.filter(x=>x.date>=p.start&&x.date<=p.end);
+  document.getElementById('perWarnTitle').textContent=left<=1
+    ?'Сьогодні останній день періоду '+p.label
+    :'До закриття періоду '+p.label+' залишилось 2 дні';
+  document.getElementById('perWarnBody').innerHTML=
+    'Після <b>'+_ddmm(close)+' 23:59</b> бухгалтер нараховує зарплату, і внести чи виправити дні '
+    +'з <b>'+_ddmm(p.start)+'</b> по <b>'+_ddmm(p.end)+'</b> вже <b style="color:var(--err)">не можна</b> — вони не будуть оплачені.'
+    +'<br><br>Перевірте свої відвідування в <b>«📊 Статистика»</b>:'
+    +'<br>• усі дні закриті (є час відходу);<br>• немає пропущених днів.'
+    +(mine.length?'<div style="margin-top:12px;padding:10px 12px;border-radius:8px;background:rgba(245,158,11,.12);color:var(--warn)">'
+      +'⚠️ Не закрито: <b>'+mine.map(x=>_ddmm(x.date)).join(', ')+'</b> — закрийте до кінця періоду.</div>':'');
+  document.getElementById('perWarnOv').style.display='flex';
+  ls_s(key,today);
+}
+function closePeriodWarn(openStatsToo){
+  document.getElementById('perWarnOv').style.display='none';
+  if(openStatsToo)openStats();
+}
 async function refreshUnclosed(){
   const cfg=getCfg();if(!cfg.url||!user)return;
   try{
@@ -1674,7 +1723,8 @@ async function refreshUnclosed(){
     const pend=new Set(outboxGet()
       .filter(p=>(p.type==='full'||p.type==='missedDayFull')&&p.rows&&p.rows[0]&&p.rows[0].employee===user)
       .map(p=>p.rows[0].date));
-    _unclosedDays=list.filter(x=>!pend.has(x.date));
+    // День із закритого періоду закрити вже не можна — не нагадуємо про нього
+    _unclosedDays=list.filter(x=>!pend.has(x.date)&&!_periodClosed(x.date));
     _updUnclosedStrip();
   }catch(e){console.warn('checkPrevSession error:',e);}
 }
@@ -2239,6 +2289,8 @@ async function flushOutbox(silent){
       catch(e){
         // Прихід уже є на сервері — у черзі він більше не потрібен
         if(p.type==='arrival'&&e.server&&e.server.error==='duplicate'){outboxDrop(p.sid);continue;}
+        // Період нараховано — сервер такий запис уже не прийме, не блокуємо ним чергу
+        if(e.server&&e.server.code==='periodClosed'){outboxDrop(p.sid);toast('🔒 Не збережено: '+e.message,'err');continue;}
         break; // немає зв'язку / сервер зайнятий — спробуємо пізніше
       }
     }
@@ -2325,7 +2377,7 @@ async function sendArrival(){
     btn.innerHTML='<span class="spin"></span> Відправляємо...';
     let arrSent=true;
     if(cfg.url){
-      const payload={type:'arrival',sid:newSid(),tabSheet:cfg.tab,
+      const payload={type:'arrival',sid:newSid(),createdAt:Date.now(),tabSheet:cfg.tab,
         employee:user,date,month,ip:userIP,location:userLoc||'',arrival:arr};
       try{await postGAS(payload);}
       catch(e){
@@ -2421,8 +2473,8 @@ async function doFinalSubmit(){
   const missedReqId=_missedDayReqId;
   if(url){
     const payload=isMissed
-      ?{type:'missedDayFull',sid:newSid(),rows,tabSheet:cfg2.tab,requestId:missedReqId}
-      :{type:'full',sid:newSid(),rows,tabSheet:cfg2.tab,isLate:_isLateEntry||false};
+      ?{type:'missedDayFull',sid:newSid(),createdAt:Date.now(),rows,tabSheet:cfg2.tab,requestId:missedReqId}
+      :{type:'full',sid:newSid(),createdAt:Date.now(),rows,tabSheet:cfg2.tab,isLate:_isLateEntry||false};
     // Спершу досилаємо чергу (напр. прихід, що не дійшов), щоб рядок-заглушка вже був
     await flushOutbox(true);
     try{
@@ -2430,6 +2482,17 @@ async function doFinalSubmit(){
       toast(isMissed?'✅ Пропущений день збережено!':'✅ Відправлено до Google Sheets!','ok');
     }catch(e){
       console.error('[doFinalSubmit]',e);
+      if(e.server&&e.server.code==='periodClosed'){
+        // Період уже нараховано — повторна відправка нічого не дасть
+        toast('🔒 '+e.message,'err');
+        btn.innerHTML='📤 Відправити';btn.disabled=false;
+        if(rows[0])_unclosedDays=_unclosedDays.filter(x=>x.date!==rows[0].date);
+        _prevSessionData=null;_isLateEntry=false;_missedDayMode=false;_missedDayReqId=null;
+        document.getElementById('missedDayBanner').style.display='none';
+        clearArrState();pc=0;
+        goStep(2);
+        return;
+      }
       outboxPut(payload);
       toast('❌ НЕ відправлено ('+e.message+'). Збережено на пристрої — дошлемо автоматично.','err');
     }
@@ -3083,7 +3146,7 @@ async function loadUmApproved(){
     const r=await fetch(cfg.url+'?action=getRequests&employee='+encodeURIComponent(user),{cache:'no-store'});
     const d=await r.json();
     if(!d.ok)return;
-    const approved=(d.requests||[]).filter(r=>r.status==='approved');
+    const approved=(d.requests||[]).filter(r=>r.status==='approved'&&!_periodClosed(_reqDateStr(r.missedDate)));
     const box=document.getElementById('umApprovedBox');
     const list=document.getElementById('umApprovedList');
     if(!approved.length){box.style.display='none';return;}
@@ -3207,11 +3270,16 @@ function _doOpenMissedDayForm(){
   sel.innerHTML='';
   const today=_todayStr();
   for(let i=1;i<=7;i++){
-    const d=new Date();d.setDate(d.getDate()-i);
+    const d=new Date(today+'T12:00');d.setDate(d.getDate()-i);
     const v=_localDateStr(d);
+    if(_periodClosed(v))break; // старші дні — у вже нарахованому періоді
     const lbl=d.toLocaleDateString('uk-UA',{day:'numeric',month:'long',weekday:'short'});
     const o=document.createElement('option');o.value=v;o.textContent=lbl;
     sel.appendChild(o);
+  }
+  if(!sel.options.length){
+    toast('🔒 Період '+_periodOf(_addDays(today,-1)).label+' вже закрито — пропущені дні з нього внести не можна','warn');
+    return;
   }
   document.getElementById('missedReason').value='';
   document.getElementById('missedDayOv').classList.add('open');
@@ -3233,13 +3301,18 @@ async function submitMissedDay(){
 }
 
 // ═══ FILL APPROVED MISSED DAY — запускає повний wizard ═══
-function openFillMissed(reqId, date){
-  // Дата може прийти як рядок з Sheets (напр. "Tue May 05 2026...")
-  let dateStr=date;
-  if(date&&date.length>10){
+// Дата може прийти як рядок з Sheets (напр. "Tue May 05 2026...")
+function _reqDateStr(date){
+  date=(date||'').toString();
+  if(date.length>10){
     const d=new Date(date);
-    if(!isNaN(d))dateStr=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+    if(!isNaN(d))return _localDateStr(d);
   }
+  return date;
+}
+function openFillMissed(reqId, date){
+  const dateStr=_reqDateStr(date);
+  if(_periodClosed(dateStr)){toast('🔒 '+_periodClosedText(dateStr),'err');return;}
   const month=new Date(dateStr+'T12:00').toLocaleDateString('uk-UA',{month:'long'}).toUpperCase();
   _missedDayMode=true;
   _missedDayReqId=reqId;
