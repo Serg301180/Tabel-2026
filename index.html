@@ -881,7 +881,7 @@ body.upd-on .toast{bottom:70px}
     </div>
   </div>
   <div class="adm-acts">
-    <button class="btn btn-ok" onclick="submitMissedDay()">📤 Надіслати запит</button>
+    <button class="btn btn-ok" id="missedSubmitBtn" onclick="submitMissedDay()">📤 Надіслати запит</button>
     <button class="btn btn-s" onclick="closeMissedDayForm()">Скасувати</button>
   </div>
 </div>
@@ -987,6 +987,12 @@ body.upd-on .toast{bottom:70px}
     </div>
     <div id="monOffReg"></div>
   </div>
+  <!-- Конфлікти: кілька записів на один день -->
+  <div class="adm-sec" style="border-color:rgba(239,68,68,.4)">
+    <div class="adm-sec-t" style="color:var(--err)">🧩 Конфлікти по днях</div>
+    <div style="font-size:.72rem;color:var(--tx3);margin-bottom:10px;line-height:1.5">Дні, де в табелі кілька записів, що накладаються: незакритий прихід поруч із уже внесеним днем або два записи на той самий час (години рахуються двічі). Залиште правильний запис, зайвий видаліть кнопкою 🗑. За весь час.</div>
+    <div id="monConflicts"></div>
+  </div>
   <datalist id="objDL"></datalist>
   <!-- IP-контроль -->
   <div class="adm-sec">
@@ -1004,13 +1010,17 @@ const ADMIN_USER = 'Любченко С.';
 // Змініть id і пункти, коли виходить помітне оновлення: вікно з'явиться один раз на кожному
 // пристрої (до входу), поки не натиснуть «Продовжити». Дрібні виправлення — id не міняти.
 const WHATS_NEW={
-  id:'26.11.20',
+  id:'26.11.20-2',
   items:[
+    ['📅','«Внести пропущений день»: у списку лише дні, яких немає в табелі. Якщо прихід за день є, але його не закрито, — форма одразу запропонує закрити день кодом.'],
+    ['🔁','Повторно надсилати запит не треба: на один день — один запит і один код.'],
     ['🔒','<b>Зарплата нараховується за періоди</b>: 1–15 число і 16 — кінець місяця. Після закінчення періоду дні з нього <b>внести чи закрити вже не можна</b> — вони не будуть оплачені.'],
     ['⏳','За 2 дні до кінця періоду при вході з\'явиться нагадування. Перевірте календар у «Статистиці»: усі дні закриті, пропущених немає.'],
     ['🔑','Код на закриття дня тепер діє <b>без обмеження часу</b>. Уже маєте код — натисніть «У мене вже є код».']
   ],
   admin:[
+    ['🧩','Моніторинг → «Конфлікти по днях»: дні з дублями (години пораховано двічі або незакритий прихід поруч із внесеним днем). Зайвий запис видаляється кнопкою 🗑.'],
+    ['📩','Кілька запитів на той самий день — одна картка. Після схвалення решта зникає, а внесений чи незакритий день схвалити не можна.'],
     ['🔒','Періоди закриваються автоматично після 15-го і останнього дня місяця. Запити, коди й ручні записи на дати із закритого періоду сервер не приймає.'],
     ['🔑','Повторний запит коду на той самий день надсилає той самий код — раніше виданий не «згорає».']
   ]
@@ -1051,7 +1061,7 @@ function _wnAdminAfterLogin(){
 // ═══ ПЕРЕВІРКА НОВОЇ ВЕРСІЇ ФОРМИ ═══
 // generate_html.py підставляє номер збірки (YYMMDDHHMM). Форма періодично завантажує свіжий
 // index.html з сайту (в обхід кешу) і порівнює номер. Новіший → смуга «Вийшла нова версія».
-const APP_BUILD='2611202319';
+const APP_BUILD='2611202342';
 let _updLastCheck=0;
 async function checkForUpdate(){
   if(location.protocol==='file:'||!/^\d+$/.test(APP_BUILD))return; // локальний файл / не зібрано
@@ -1756,13 +1766,17 @@ function _updUnclosedStrip(){
 window.addEventListener('resize',()=>{if(_unclosedDays.length||_isLateEntry)_updUnclosedStrip();});
 function openCloseDay(){
   if(_isLateEntry||!_unclosedDays.length)return;
+  _startCloseDay(_unclosedDays[0]);
+}
+// Закриття конкретного незакритого дня кодом (зі смуги або з форми «пропущений день»)
+function _startCloseDay(day){
   // Не змішуємо з поточним днем: закривати старий можна до приходу або після завершення сьогоднішнього
   const act=document.querySelector('.step.active');
   if(getArrState()||_missedDayMode||(act&&['step4','step5','step6','step7'].includes(act.id))){
-    toast('⚠️ Спочатку завершіть сьогоднішній день, потім закрийте '+_ddmm(_unclosedDays[0].date),'warn');
+    toast('⚠️ Спочатку завершіть сьогоднішній день, потім закрийте '+_ddmm(day.date),'warn');
     return;
   }
-  _prevSessionData={..._unclosedDays[0],employee:user};
+  _prevSessionData={...day,employee:user};
   _isLateEntry=true;
   showUnclosedModal(_prevSessionData);
 }
@@ -2290,7 +2304,7 @@ async function flushOutbox(silent){
         // Прихід уже є на сервері — у черзі він більше не потрібен
         if(p.type==='arrival'&&e.server&&e.server.error==='duplicate'){outboxDrop(p.sid);continue;}
         // Період нараховано — сервер такий запис уже не прийме, не блокуємо ним чергу
-        if(e.server&&e.server.code==='periodClosed'){outboxDrop(p.sid);toast('🔒 Не збережено: '+e.message,'err');continue;}
+        if(e.server&&(e.server.code==='periodClosed'||e.server.code==='dayExists')){outboxDrop(p.sid);toast('🔒 Не збережено: '+e.message,'err');continue;}
         break; // немає зв'язку / сервер зайнятий — спробуємо пізніше
       }
     }
@@ -2482,8 +2496,8 @@ async function doFinalSubmit(){
       toast(isMissed?'✅ Пропущений день збережено!':'✅ Відправлено до Google Sheets!','ok');
     }catch(e){
       console.error('[doFinalSubmit]',e);
-      if(e.server&&e.server.code==='periodClosed'){
-        // Період уже нараховано — повторна відправка нічого не дасть
+      if(e.server&&(e.server.code==='periodClosed'||e.server.code==='dayExists')){
+        // Період уже нараховано / день уже внесено іншим шляхом — повторна відправка нічого не дасть
         toast('🔒 '+e.message,'err');
         btn.innerHTML='📤 Відправити';btn.disabled=false;
         if(rows[0])_unclosedDays=_unclosedDays.filter(x=>x.date!==rows[0].date);
@@ -2920,6 +2934,53 @@ async function loadAdminStats(){
     renderMonitoring(d);
   }catch(e){msg.textContent='❌ '+e.message;}
   loadOffRegistry();
+  loadDayConflicts();
+}
+
+// ── Конфлікти по днях: кілька записів на один день ──
+let _cfItems=[];
+async function loadDayConflicts(){
+  const box=document.getElementById('monConflicts');if(!box)return;
+  const cfg=getCfg();if(!cfg.url)return;
+  box.innerHTML='<div style="font-size:.78rem;color:var(--tx3)">⏳ Завантаження...</div>';
+  try{
+    const r=await fetch(cfg.url+'?'+new URLSearchParams({action:'dayConflicts',tabSheet:cfg.tab}),{cache:'no-store'});
+    const d=await r.json();
+    if(!d.ok)throw new Error(d.error&&d.error.startsWith('Невідома дія')?'оновіть скрипт в Apps Script (нова версія)':d.error);
+    _cfItems=d.items||[];
+    if(!_cfItems.length){box.innerHTML='<div style="font-size:.8rem;color:var(--ok)">✅ Конфліктів немає — на кожен день один запис</div>';return;}
+    box.innerHTML='<div style="font-size:.74rem;color:var(--tx2);margin-bottom:8px">Знайдено днів: <b style="color:var(--err)">'+_cfItems.length+'</b></div>'
+      +_cfItems.map((it,k)=>
+      '<div style="background:var(--s3);border-radius:8px;padding:10px 12px;margin-bottom:8px">'
+      +'<div style="font-size:.8rem;font-weight:700;margin-bottom:2px">👤 '+esc(it.employee)+' · 📅 '+_ddmm(it.date)+'.'+it.date.slice(0,4)+'</div>'
+      +'<div style="font-size:.7rem;color:var(--tx3);margin-bottom:6px">'
+        +(it.kind==='double'?'Два записи на той самий час — години пораховано двічі':'Незакритий прихід поруч із внесеним днем — день висить як незакритий')
+        +(it.closed?' · <b style="color:var(--warn)">період уже нараховано — зміна вплине на години в ньому</b>':'')+'</div>'
+      +it.sessions.map((s,j)=>
+        '<div style="display:flex;gap:8px;align-items:center;padding:6px 0;border-top:1px solid var(--bd);font-size:.76rem">'
+        +'<div style="flex:1;min-width:0">'
+          +'<b>'+esc(s.arrival||'—')+' – '+(s.departure?esc(s.departure):'<span style="color:var(--warn)">без відходу</span>')+'</b>'
+          +' · '+esc(s.location||'—')+(s.hours?' · '+esc(s.hours)+' год':'')
+          +'<div style="font-size:.68rem;color:var(--tx3);overflow-wrap:anywhere">'
+            +(s.projects.length?s.projects.map(p=>esc(p.code)+(p.timeSpent?' ('+esc(p.timeSpent)+')':'')).join(', '):'без проектів')
+            +' · '+s.rows.length+' рядк.'+(s.violation?' · '+esc(s.violation):'')+'</div>'
+        +'</div>'
+        +'<button class="btn btn-s" style="font-size:.72rem;padding:4px 10px;color:var(--err);flex-shrink:0" onclick="deleteConflictSession('+k+','+j+',this)">🗑 Видалити</button>'
+        +'</div>').join('')
+      +'</div>').join('');
+  }catch(e){box.innerHTML='<div style="font-size:.78rem;color:var(--err)">❌ '+esc(e.message)+'</div>';}
+}
+async function deleteConflictSession(k,j,btn){
+  const it=_cfItems[k],s=it&&it.sessions[j];if(!s)return;
+  if(!confirm('Видалити запис '+it.employee+' за '+_ddmm(it.date)+':\n'+(s.arrival||'—')+' – '+(s.departure||'без відходу')+' · '+(s.location||'')
+    +' ('+s.rows.length+' рядк.)?'+(it.closed?'\n\nУвага: період уже нараховано.':'')))return;
+  btn.disabled=true;btn.innerHTML='<span class="spin"></span>';
+  try{
+    await postGAS({type:'deleteDayRows',tabSheet:getCfg().tab,employee:it.employee,date:it.date,
+      arrival:s.arrival,departure:s.departure,location:s.location,rows:s.rows});
+    toast('✅ Зайвий запис видалено','ok');
+  }catch(e){toast('❌ '+e.message,'err');}
+  loadDayConflicts(); // номери рядків змінились — перечитуємо
 }
 
 // ── Записи поза реєстром: перегляд і заміна на об'єкт із реєстру ──
@@ -3146,7 +3207,13 @@ async function loadUmApproved(){
     const r=await fetch(cfg.url+'?action=getRequests&employee='+encodeURIComponent(user),{cache:'no-store'});
     const d=await r.json();
     if(!d.ok)return;
-    const approved=(d.requests||[]).filter(r=>r.status==='approved'&&!_periodClosed(_reqDateStr(r.missedDate)));
+    // Один рядок на дату, навіть якщо схвалених запитів на неї кілька
+    const seenD=new Set();
+    const approved=(d.requests||[]).filter(r=>{
+      const ds=_reqDateStr(r.missedDate);
+      if(r.status!=='approved'||_periodClosed(ds)||seenD.has(ds))return false;
+      seenD.add(ds);return true;
+    });
     const box=document.getElementById('umApprovedBox');
     const list=document.getElementById('umApprovedList');
     if(!approved.length){box.style.display='none';return;}
@@ -3199,6 +3266,11 @@ async function requestOTP(){
     btn.disabled=false;btn.innerHTML='🔑 Запросити код підтвердження';
     showOtpInput(true);
   }catch(e){
+    // День уже закрито іншим шляхом — код не потрібен, оновлюємо смугу незакритих днів
+    if(e.server&&(e.server.code==='dayExists'||e.server.code==='noDay')){
+      _unclosedDays=_unclosedDays.filter(x=>x.date!==s.date);
+      closeUnclosedLater();toast('ℹ️ '+e.message,'ok');refreshUnclosed();return;
+    }
     document.getElementById('otpReqMsg').innerHTML='<span style="color:var(--err)">❌ '+esc(e.message)+'</span>';
     btn.disabled=false;btn.innerHTML='🔑 Запросити код підтвердження';
   }
@@ -3265,22 +3337,43 @@ function openMissedDayForm(){
   if(!user){toast('⚠️ Спочатку увійдіть','warn');return;}
   _instrGateOpen(_doOpenMissedDayForm);
 }
-function _doOpenMissedDayForm(){
+let _missedDayInfo={};  // date → {state:'open'|'done',...} зі стану табеля
+async function _doOpenMissedDayForm(){
   const sel=document.getElementById('missedDateSel');
   sel.innerHTML='';
   const today=_todayStr();
+  const dates=[];
   for(let i=1;i<=7;i++){
-    const d=new Date(today+'T12:00');d.setDate(d.getDate()-i);
-    const v=_localDateStr(d);
+    const v=_addDays(today,-i);
     if(_periodClosed(v))break; // старші дні — у вже нарахованому періоді
-    const lbl=d.toLocaleDateString('uk-UA',{day:'numeric',month:'long',weekday:'short'});
-    const o=document.createElement('option');o.value=v;o.textContent=lbl;
-    sel.appendChild(o);
+    dates.push(v);
   }
-  if(!sel.options.length){
+  if(!dates.length){
     toast('🔒 Період '+_periodOf(_addDays(today,-1)).label+' вже закрито — пропущені дні з нього внести не можна','warn');
     return;
   }
+  // Що вже є в табелі: внесені дні не показуємо, незакриті — закривати кодом, запит уже надіслано — чекати
+  _missedDayInfo={};let reqs={};
+  const cfg=getCfg();
+  if(cfg.url){
+    try{
+      const r=await fetch(cfg.url+'?'+new URLSearchParams({action:'dayStates',employee:user,
+        from:dates[dates.length-1],to:dates[0],tabSheet:cfg.tab}),{cache:'no-store'});
+      const d=await r.json();
+      if(d.ok){_missedDayInfo=d.days||{};reqs=d.requests||{};}
+    }catch(e){console.warn('dayStates',e);}
+  }
+  dates.forEach(v=>{
+    const info=_missedDayInfo[v];
+    if(info&&info.state==='done')return;
+    const lbl=new Date(v+'T12:00').toLocaleDateString('uk-UA',{day:'numeric',month:'long',weekday:'short'});
+    const o=document.createElement('option');o.value=v;
+    if(info&&info.state==='open'){o.dataset.state='open';o.textContent=lbl+' — не закрито, закрити кодом';}
+    else if(reqs[v]){o.dataset.state='req';o.textContent=lbl+' — запит уже '+(reqs[v]==='approved'?'схвалено':'надіслано');}
+    else o.textContent=lbl;
+    sel.appendChild(o);
+  });
+  if(!sel.options.length){toast('✅ Усі дні за останній тиждень уже внесені','ok');return;}
   document.getElementById('missedReason').value='';
   document.getElementById('missedDayOv').classList.add('open');
 }
@@ -3288,16 +3381,34 @@ function closeMissedDayForm(){document.getElementById('missedDayOv').classList.r
 document.getElementById('missedDayOv').addEventListener('click',e=>{if(e.target===e.currentTarget)closeMissedDayForm();});
 
 async function submitMissedDay(){
-  const date=document.getElementById('missedDateSel').value;
+  const sel=document.getElementById('missedDateSel');
+  const date=sel.value,opt=sel.options[sel.selectedIndex];
+  const state=opt&&opt.dataset.state;
+  // Прихід за цей день є, але не закрито — це не пропущений день, а закриття кодом
+  if(state==='open'){
+    const info=_missedDayInfo[date]||{};
+    closeMissedDayForm();
+    toast('ℹ️ Прихід за '+_ddmm(date)+' є — день треба закрити кодом','warn');
+    _startCloseDay({date,month:info.month||'',arrival:info.arrival||'',location:info.location||'',ip:info.ip||''});
+    return;
+  }
+  if(state==='req'){toast('ℹ️ Запит на '+_ddmm(date)+' уже є — чекайте рішення адміністратора. Повторно надсилати не треба.','warn');return;}
   const reason=document.getElementById('missedReason').value.trim();
   if(!reason){toast('⚠️ Вкажіть причину','err');document.getElementById('missedReason').focus();return;}
   const cfg=getCfg();
   if(!cfg.url){toast('⚠️ Google Sheets не налаштовано','err');return;}
+  const btn=document.getElementById('missedSubmitBtn');
+  if(btn){if(btn.disabled)return;btn.disabled=true;}
   try{
-    await postGAS({type:'requestMissedDay',employee:user,missedDate:date,reason});
+    const d=await postGAS({type:'requestMissedDay',employee:user,missedDate:date,reason,tabSheet:cfg.tab});
     closeMissedDayForm();
-    toast('✅ Запит надіслано адміністратору','ok');
-  }catch(e){toast('❌ '+e.message,'err');}
+    if(d.duplicate)toast('ℹ️ Запит на '+_ddmm(date)+' уже надіслано раніше — чекайте рішення адміністратора','warn');
+    else toast('✅ Запит надіслано адміністратору','ok');
+  }catch(e){
+    const s=e.server||{};
+    if(s.code==='dayOpen'&&s.day){closeMissedDayForm();toast('ℹ️ '+e.message,'warn');_startCloseDay(s.day);}
+    else toast((s.code==='dayExists'?'ℹ️ ':'❌ ')+e.message,s.code==='dayExists'?'warn':'err');
+  }finally{if(btn)btn.disabled=false;}
 }
 
 // ═══ FILL APPROVED MISSED DAY — запускає повний wizard ═══
@@ -3378,18 +3489,26 @@ async function loadAdminRequests(){
     const r=await fetch(cfg.url+'?action=getRequests',{cache:'no-store'});
     const d=await r.json();
     if(!d.ok)throw new Error(d.error);
-    const reqs=(d.requests||[]).filter(r=>r.status==='pending');
-    if(!reqs.length){el.innerHTML='<span style="color:var(--ok);font-size:.8rem">✅ Нових запитів немає</span>';return;}
-    el.innerHTML=reqs.map(req=>
+    // Кілька запитів одного співробітника на ту саму дату — одна картка
+    const groups=[],byKey={};
+    (d.requests||[]).filter(r=>r.status==='pending').forEach(r=>{
+      const k=r.employee+'|'+_reqDateStr(r.missedDate);
+      if(!byKey[k]){byKey[k]={...r,ids:[],reasons:[]};groups.push(byKey[k]);}
+      byKey[k].ids.push(r.id);
+      if(r.reason&&!byKey[k].reasons.includes(r.reason))byKey[k].reasons.push(r.reason);
+    });
+    if(!groups.length){el.innerHTML='<span style="color:var(--ok);font-size:.8rem">✅ Нових запитів немає</span>';return;}
+    el.innerHTML=groups.map(req=>
       '<div style="background:var(--s3);border-radius:8px;padding:10px 12px;margin-bottom:8px">'
       +'<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:6px">'
-      +'<div><div style="font-size:.82rem;font-weight:600;color:var(--tx)">'+esc(req.employee)+'</div>'
-      +'<div style="font-size:.74rem;color:var(--tx3)">📅 '+esc(req.missedDate)+' &nbsp;·&nbsp; Запит: '+esc(req.requestDate)+'</div>'
-      +'<div style="font-size:.75rem;color:var(--tx2);margin-top:3px">📝 '+esc(req.reason)+'</div></div>'
+      +'<div><div style="font-size:.82rem;font-weight:600;color:var(--tx)">'+esc(req.employee)
+      +(req.ids.length>1?' <span style="font-size:.7rem;color:var(--warn);font-weight:400">· запитів на цей день: '+req.ids.length+'</span>':'')+'</div>'
+      +'<div style="font-size:.74rem;color:var(--tx3)">📅 '+esc(_reqDateStr(req.missedDate))+' &nbsp;·&nbsp; Запит: '+esc(req.requestDate)+'</div>'
+      +'<div style="font-size:.75rem;color:var(--tx2);margin-top:3px">📝 '+req.reasons.map(esc).join(' · ')+'</div></div>'
       +'</div>'
       +'<div style="display:flex;gap:8px">'
-      +'<button class="btn btn-ok" style="font-size:.76rem;padding:5px 12px" onclick="adminApproveReq(\''+esc(req.id)+'\',this)">✅ Схвалити</button>'
-      +'<button class="btn btn-s" style="font-size:.76rem;padding:5px 12px;color:var(--err)" onclick="adminRejectReq(\''+esc(req.id)+'\',this)">❌ Відхилити</button>'
+      +'<button class="btn btn-ok" style="font-size:.76rem;padding:5px 12px" onclick="adminApproveReq(\''+esc(req.ids[0])+'\',this)">✅ Схвалити</button>'
+      +'<button class="btn btn-s" style="font-size:.76rem;padding:5px 12px;color:var(--err)" onclick="adminRejectReq(\''+esc(req.ids.join(','))+'\',this)">❌ Відхилити</button>'
       +'</div></div>'
     ).join('');
   }catch(e){el.innerHTML='<span style="color:var(--err)">❌ '+esc(e.message)+'</span>';}
@@ -3402,13 +3521,16 @@ async function adminApproveReq(id,btn){
     await postGAS({type:'approveRequest',id,tabSheet:cfg.tab});
     toast('✅ Запит схвалено','ok');
     loadAdminRequests();
-  }catch(e){toast('❌ '+e.message,'err');btn.innerHTML='✅ Схвалити';btn.disabled=false;}
+  }catch(e){
+    toast('❌ '+e.message,'err');btn.innerHTML='✅ Схвалити';btn.disabled=false;
+    if(e.server&&(e.server.code==='dayExists'||e.server.code==='dayOpen')&&document.getElementById('monConflicts'))loadDayConflicts();
+  }
 }
 async function adminRejectReq(id,btn){
   const cfg=getCfg();if(!cfg.url)return;
   btn.innerHTML='<span class="spin"></span>';btn.disabled=true;
   try{
-    await postGAS({type:'rejectRequest',id,tabSheet:cfg.tab});
+    for(const one of id.split(','))await postGAS({type:'rejectRequest',id:one,tabSheet:cfg.tab});
     toast('❌ Запит відхилено','warn');
     loadAdminRequests();
   }catch(e){toast('❌ '+e.message,'err');btn.innerHTML='❌ Відхилити';btn.disabled=false;}
